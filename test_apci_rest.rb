@@ -21,7 +21,7 @@ class TestApcirClient < Test::Unit::TestCase
 
   def test_user_list
     user = @apci_session.user_list({:mail => 'admin@allplayers.com'})
-    assert_equal("1", user['uid'])
+    assert_equal("1", user['item']['uid'])
   end
 
   def test_user_create
@@ -77,8 +77,8 @@ class TestApcirClient < Test::Unit::TestCase
 
   def test_group_roles_list
     # node id 116518, dev badminton....
-    roles = @apci_session.group_roles_list(116518)
-    assert_equal('116518', roles['item'][0]['nid'])
+    roles = @apci_session.group_roles_list(108518)
+    assert_equal('108518', roles['item'][0]['nid'])
   end
 
   def test_login
