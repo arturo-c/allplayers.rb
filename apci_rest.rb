@@ -8,14 +8,14 @@ require "addressable/uri"
 class ApcirClient
 
   def initialize(api_key = nil, base_url = 'www.allplayers.com', protocol = 'http://')
-    @url = Addressable::URI.join(protocol + base_url, '/api/rest/')
+    @uri = Addressable::URI.join(protocol + base_url, '/api/v1/rest/')
     @key = api_key
   end
 
   def login(name, pass)
     begin
       #[POST] {endpoint}/user/login + DATA (name, pass)
-      uri = Addressable::URI.join(@url, 'user/login')
+      uri = Addressable::URI.join(@uri, 'user/login')
       response = RestClient.post(uri.to_s, {:name => name, :pass => pass})
       @session_cookies = response.cookies
       Hash.from_xml(response)['result']
@@ -35,12 +35,11 @@ class ApcirClient
   end
 
   def user_list(filters)
-    
     get 'user', filters
   end
 
   def user_create(mail, pass, fname, lname, gender, birthdate, more_params = {})
-  
+
     case gender.downcase
     when 'male'
       gender = '1'
@@ -55,15 +54,15 @@ class ApcirClient
       :field_lastname => {:'0' => {:value => lname}},
       :field_user_gender => {:'0' => {:value => gender}},
       :field_birth_date => {:'0' => {:value => {
-          :month => birthdate.mon.to_s(),
-          :hour => '0',
-          :minute => '0',
-          :second => '0',
-          :day => birthdate.mday.to_s(),
-          :year => birthdate.year.to_s(),
+            :month => birthdate.mon.to_s(),
+            :hour => '0',
+            :minute => '0',
+            :second => '0',
+            :day => birthdate.mday.to_s(),
+            :year => birthdate.year.to_s(),
           }}},
     }
-    
+
     #[POST] {endpoint}/user + DATA (form_state for user_register form
     post 'user', required_params.merge(more_params)
   end
@@ -79,21 +78,46 @@ class ApcirClient
       :type => type,
     }
 
-    more_params.merge({:body => body}) if body
-    
+    more_params.merge!({:body => body}) if body
+
+    # Set defaults, should be overriden by anything passed in...
+    {:language => 'en'}.merge(more_params)
+
     #[POST] {endpoint}/node + DATA (form_state for node_form)
     post 'node', required_params.merge(more_params)
   end
-  
+
   def group_create(title, description, location, category, type, more_params = {})
     category = '5318' # This is hardcoded to Group Category -> Other
     vocabulary = '18' # This is hardcoded to Group Category
+    type = type.downcase
+
     required_params = {
       :og_description => description,
       :locations => {:'0' => location},
-      :taxonomy => {vocabulary => category},
-      :space_preset_og => type.downcase,
+      :taxonomy => {:'18' => category},
+      :spaces_preset_og => type,
     }
+
+    # Set 'other' type, may not be needed.
+    if (type == 'other' && more_params['spaces_preset_other'].nil?)
+      more_params.merge!({:spaces_preset_other => 'other'})
+    end
+
+    # Generate a path if none given.
+    if more_params['purl'].nil?
+      purl_path = (title + ' ' + type).downcase.gsub(/[^0-9a-z]/i, '_')
+      more_params.merge!({:purl => {:value => purl_path}})
+    end
+
+    # APCIHACK - Fix renamed submit button.
+    more_params.merge!({:op => 'Save Group'})
+
+    # APCIHACK - Fix non-required fields...
+    more_params.merge!({ :field_status => {:'0' => 'Active'},
+      :field_group_mates => {:'0' => 'Group Mates'}
+    })
+
     #[POST] {endpoint}/node + DATA (form_state for node_form)
     node_create title, 'group', nil, required_params.merge(more_params)
   end
@@ -109,8 +133,8 @@ class ApcirClient
   end
 
   def group_roles_list(nid)
-    #[POST] {endpoint}/node/{nid}/roles
-    post 'node/' + nid.to_s() + '/roles'
+    #[GET] {endpoint}/node/{nid}/roles
+    get 'node/' + nid.to_s() + '/roles'
   end
 
   def user_group_role_add(uid, nid, rid)
@@ -122,9 +146,8 @@ class ApcirClient
   def get(path, query = nil, headers = {})
     # @TODO - cache here (HTTP Headers?)
     begin
-      uri = Addressable::URI.join(@url, path)
+      uri = Addressable::URI.join(@uri, path)
       uri.query_values = query if query
-      puts uri.to_s
       response = RestClient.get(uri.to_s, headers.merge({:cookies => @session_cookies}))
       # @TODO - Update the cookies?
       # @TODO - There must be a way to change the base object (XML string to
@@ -137,8 +160,7 @@ class ApcirClient
 
   def post(path, params = {}, headers = {})
     begin
-      uri = Addressable::URI.join(@url, path)
-      puts uri.to_s
+      uri = Addressable::URI.join(@uri, path)
       response = RestClient.post(uri.to_s, params, headers.merge({:cookies => @session_cookies}))
       # @TODO - Update the cookies?
       # @TODO - There must be a way to change the base object (XML string to
