@@ -3,16 +3,49 @@
 require 'rubygems'
 require 'gdata'
 require 'fastercsv'
+# Hash.from_xml()
+require 'active_support'
+require "addressable/uri"
 
 class ApciGoogSS
-  def initialize
-    @client = GData::Client::DocList.new
+  def initialize(protocol = 'https')
+    @client = GData::Client::Spreadsheets.new
+    @base_uri = Addressable::URI.parse(protocol +'://spreadsheets.google.com/')
+    #@headers = {'Content-Type' => 'application/x-www-form-urlencoded'}
   end
 
   def login(user, pass)
-    @client.clientlogin(user, pass)
+    begin
+      @client.clientlogin(user, pass)
+      rescue GData::Client::AuthorizationError
+        $dz.error("Login Failure", "Something went wrong while logging you in. Check the credentials")
+      rescue GData::Client::CaptchaError
+        $dz.error("Login Failure", "There was an error with loggin you in, try to login to Google Docs in your browser and then try again.")
+      rescue SocketError
+        $dz.error("No connection", "Cannot connect to the Google Docs service, are you connected to the internet?")
+      rescue Exception
+        $dz.error("Unkown error", "An unkown error happened.")
+    else
+      sleep(1)
+    end
+  end
+
+  def list
+    uri = @base_uri.join('feeds/spreadsheets/private/full')
+    feed = @client.get(uri)
+    Hash.from_xml(feed.body)
   rescue
-    puts "Login failed: " + $!
+    puts "Unable to list spreadsheets: " + $!
+  end
+
+  def get_content(href)
+    # TODO - Honor SSL/HTTPS...
+    #uri = @base_uri.join('feeds/spreadsheets/private/full')
+    uri = Addressable::URI.parse(href)
+    feed = @client.get(uri)
+    Hash.from_xml(feed.body)
+  rescue
+    puts "Unable to retrieve spreadsheet: " + $!
   end
 
   def get_from_csv(key, tab)
@@ -46,75 +79,103 @@ module ImportActions
     # Take the first row and use it to define columns.  Use only the first line.
     column_defs = sheet.shift.split_first("\n")
 
-    # Detect sheet type / Sanity Check
-    #if (2 <= (column_defs & ['First Name', 'Last Name']).length)
+    # TODO - Detect sheet type / Sanity Check
     if (name == 'Users')
+      #if (2 <= (column_defs & ['First Name', 'Last Name']).length)
+      puts "Importing Users\n"
       sheet.each {|row| self.import_user(row.to_hash(column_defs))}
-    elsif (2 <= (column_defs & ['Group Name', 'Category']).length)
+    elsif (name == 'Groups')
+      #elsif (2 <= (column_defs & ['Group Name', 'Category']).length)
       puts "Importing Groups\n"
-      sheet.each {|row| self.import_user(row.to_hash(column_defs))}
-    elsif (2 <= (column_defs & ['Title', 'Groups Involved', 'Duration (in minutes)']).length)
-      puts "Events: not implemented\n"
-    elsif (2 <= (column_defs & ['Group Name', 'User email', 'Role (Admin, Coach, Player, etc)']).length)
-      puts "Users in Groups: not implemented\n"
+      sheet.each {|row| self.import_group(row.to_hash(column_defs))}
+    elsif (name == 'Events')
+      #elsif (2 <= (column_defs & ['Title', 'Groups Involved', 'Duration (in minutes)']).length)
+      puts "Importing Events\n"
+      sheet.each {|row| self.import_event(row.to_hash(column_defs))}
+    elsif (name == 'Users in Groups')
+      #elsif (2 <= (column_defs & ['Group Name', 'User email', 'Role (Admin, Coach, Player, etc)']).length)
+      puts "Importing Users in Groups\n"
+      sheet.each {|row| self.import_user_group_role(row.to_hash(column_defs))}
     else
       puts "Don't know what to do with sheet " + fname + "\n"
-      next
+      next # Go to the next sheet.
     end
   end
 
   def import_user(row)
+
+    puts 'Importing Users'
+    #return
+
     more_params = {}
     self.user_create(
       row['mail'],
-      row['field_firstname'],
-      row['field_lastname'],
-      row['field_gender'],
-      Date.parse(row['field_birth_date']),
+      row['firstname'],
+      row['lastname'],
+      row['gender'],
+      Date.parse(row['birth_date']),
       more_params
     )
     #log stuff!!
   end
 
   def import_group(row)
-    # @TODO - Assign owner uid/name to group.
     more_params = {}
-    self.group_create(
-      row['mail'],
-      'password',
-      row['field_firstname'],
-      row['field_lastname'],
-      row['field_gender'],
-      Date.parse(row['field_birth_date']),
-      more_params
-    )
+
+    # TODO - Assign owner uid/name to group.
+    # TODO - Group Above
+
+    location = {
+      :street => row['address_1'],
+      :additional => row['address_2'],
+      :city => row['city'],
+      :province => row['state_province'],
+      :postal_code => row['postal_code'],
+      }
+
+    # Set Custom type, if 'Other' type.
+    type = row['type'].split(':')
+    if (type[1] && type[0].downcase == 'other')
+      more_params.merge!({:spaces_preset_other => type[1]})
+    end
+
+    puts self.group_create(
+     row['group_name'], # Title
+     row['description'], # Description field
+     location,
+     row['category'].split(', '), # Category, comma seperated as needed.
+     type[0], # Spaces preset.
+     more_params
+    ).to_yaml
     #log stuff!!
   end
 
-  def import_events(row)
-    # @TODO - Assign owner uid/name to event.
-    row['event_group_names'] # Lookup group assignments.
+  def import_event(row)
+    puts row.to_yaml
+    return
+    
+    # TODO - Assign owner uid/name to event.
+    groups = row['event_group_names'] # Lookup group assignments.
 
-    # Get appropriate Taxonomy term.
-    vid = self.taxonomy_vocabulary_list({:module => 'features_event_category'})['item']['vid']
-    tid = self.taxonomy_term_list({:name => row['category'], :vid => vid})['item']['tid']
-
-    start_date = Date.parse(row['start_date_time'])
-    end_date = Date.parse(row['end_date_time'])
-
+    # Placeholder for additional fields.
     more_params = {}
-    self.node_create(
+    
+    self.event_create(
       row['event_title'],
-      row['field_firstname'],
-      row['field_lastname'],
-      row['field_gender'],
-      Date.parse(row['field_birth_date']),
+      groups,
+      Date.parse(row['start_date_time']),
+      Date.parse(row['end_date_time']),
+      row['event_title'],
+      row['description'],
       more_params
     )
     #log stuff!!
   end
 
   def import_user_group_role(row)
+    puts row.to_yaml
+    return
+
     # Lookup group by name (and group owner)
     # Lookup UID by email.
     uid = self.user_list({:mail => row['user_email']})['item']['uid']

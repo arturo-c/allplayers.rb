@@ -1,13 +1,13 @@
 require 'rubygems'
 require 'restclient'
 require 'restclient/response'
-# Hash.from_xml()
-require 'active_support'
+# Hopefully better xml parsing...
+require 'xmlsimple'
 require "addressable/uri"
 
 class ApcirClient
 
-  def initialize(api_key = nil, base_url = 'www.allplayers.com', protocol = 'http://')
+  def initialize(api_key = nil, base_url = 'sandbox.allplayers.com', protocol = 'http://')
     @uri = Addressable::URI.join(protocol + base_url, '/api/v1/rest/')
     @key = api_key
     @session_cookies = {}
@@ -19,15 +19,20 @@ class ApcirClient
       uri = Addressable::URI.join(@uri, 'user/login')
       response = RestClient.post(uri.to_s, {:name => name, :pass => pass})
       @session_cookies = response.cookies
-      Hash.from_xml(response)['result']
+      XmlSimple.xml_in(response, { 'ForceArray' => false })
     rescue
       puts "Session authentication failed."
     end
   end
 
   def logout()
+    begin
     #[POST] {endpoint}/user/logout
     post 'user/logout'
+    ensure
+    # Delete the cookies.
+    @session_cookies = {}
+    end
   end
 
   def node_get(nid)
@@ -142,7 +147,6 @@ class ApcirClient
   end
 
   def user_create(mail, fname, lname, gender, birthdate, more_params = {})
-
     # Parse the gender to CCK field def.
     case gender.downcase
     when 'male', 'm'
@@ -186,9 +190,13 @@ class ApcirClient
     post 'node/' + nid.to_s() + '/leave/' + uid.to_s()
   end
 
-  def group_roles_list(nid)
-    #[GET] {endpoint}/node/{nid}/roles
-    get 'node/' + nid.to_s() + '/roles'
+  def group_roles_list(nid, uid = '')
+    #[GET] {endpoint}/node/{nid}/roles(/uid)
+    if uid
+      get 'node/' + nid.to_s() + '/roles/' + uid.to_s()
+    else
+      get 'node/' + nid.to_s() + '/roles'
+    end
   end
 
   def group_users_list(nid)
@@ -217,7 +225,7 @@ class ApcirClient
       @session_cookies.merge(response.cookies) unless response.cookies.empty?
       # @TODO - There must be a way to change the base object (XML string to
       #   Hash) while keeping the methods...
-      Hash.from_xml(response)['result']
+      XmlSimple.xml_in(response, { 'ForceArray' => false })
     rescue
       puts "\nGET failed: " + $!
     end
@@ -231,7 +239,7 @@ class ApcirClient
       @session_cookies.merge(response.cookies) unless response.cookies.empty?
       # @TODO - There must be a way to change the base object (XML string to
       #   Hash) while keeping the methods...
-      Hash.from_xml(response)['result']
+      XmlSimple.xml_in(response, { 'ForceArray' => false })
     rescue
       puts "\nPOST failed: " + $!
     end
