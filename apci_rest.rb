@@ -29,47 +29,14 @@ class ApcirClient
     post 'user/logout'
   end
 
-  def user_get(uid)
-    #[GET] {endpoint}/user/{uid}
-    get 'user/' + uid.to_s()
-  end
-
-  def user_list(filters)
-    get 'user', filters
-  end
-
-  def user_create(mail, pass, fname, lname, gender, birthdate, more_params = {})
-
-    case gender.downcase
-    when 'male'
-      gender = '1'
-    when 'female'
-      gender = '2'
-    end
-
-    required_params = {
-      :mail => mail,
-      :pass => pass,
-      :field_firstname => {:'0' => {:value => fname}},
-      :field_lastname => {:'0' => {:value => lname}},
-      :field_user_gender => {:'0' => {:value => gender}},
-      :field_birth_date => {:'0' => {:value => {
-            :month => birthdate.mon.to_s(),
-            :hour => '0',
-            :minute => '0',
-            :second => '0',
-            :day => birthdate.mday.to_s(),
-            :year => birthdate.year.to_s(),
-          }}},
-    }
-
-    #[POST] {endpoint}/user + DATA (form_state for user_register form
-    post 'user', required_params.merge(more_params)
-  end
-
   def node_get(nid)
     #[GET] {endpoint}/node/{nid}
     get 'node/' + nid.to_s()
+  end
+
+  def node_list(filters)
+    #[GET] {endpoint}/node (?fields[]=fieldname&nid=value)
+    get 'node', filters
   end
 
   def node_create(title, type, body = nil, more_params = {})
@@ -78,24 +45,32 @@ class ApcirClient
       :type => type,
     }
 
+    # Add a body if there is one.
     more_params.merge!({:body => body}) if body
 
-    # Set defaults, should be overriden by anything passed in...
-    {:language => 'en'}.merge(more_params)
+    # Defaults, can be overridden.
+    more_params = {
+      :language => 'en',
+    }.merge(more_params)
 
     #[POST] {endpoint}/node + DATA (form_state for node_form)
     post 'node', required_params.merge(more_params)
   end
 
   def group_create(title, description, location, category, type, more_params = {})
-    category = '5318' # This is hardcoded to Group Category -> Other
-    vocabulary = '18' # This is hardcoded to Group Category
+
+    # Get appropriate Taxonomy term.
+    # @TODO - Handle hierachical taxonomy.  
+    vid = self.taxonomy_vocabulary_list({:module => 'features_group_category'})['item']['vid']
+    tid = self.taxonomy_term_list({:name => category, :vid => vid})['item']['tid']
+
+    # PURL preset names are lowercase.
     type = type.downcase
 
     required_params = {
       :og_description => description,
       :locations => {:'0' => location},
-      :taxonomy => {:'18' => category},
+      :taxonomy => {vid => tid},
       :spaces_preset_og => type,
     }
 
@@ -114,12 +89,68 @@ class ApcirClient
     more_params.merge!({:op => 'Save Group'})
 
     # APCIHACK - Fix non-required fields...
-    more_params.merge!({ :field_status => {:'0' => 'Active'},
-      :field_group_mates => {:'0' => 'Group Mates'}
+    more_params.merge!({
+        :field_status => {:'0' => 'Active'},
+        :field_group_mates => {:'0' => 'Group Mates'}
     })
 
     #[POST] {endpoint}/node + DATA (form_state for node_form)
     node_create title, 'group', nil, required_params.merge(more_params)
+  end
+
+  def taxonomy_vocabulary_list(filters)
+    #[GET] {endpoint}/vocabulary (?fields[]=fieldname&vid=value)
+    get 'vocabulary', filters
+  end
+
+  def taxonomy_term_list(filters)
+    #[GET] {endpoint}/term (?fields[]=fieldname&tid=value)
+    get 'term' , filters
+  end
+
+  def user_get(uid)
+    #[GET] {endpoint}/user/{uid}
+    get 'user/' + uid.to_s()
+  end
+
+  def user_list(filters)
+    #[GET] {endpoint}/user?fieldname=value
+    get 'user', filters
+  end
+
+  def user_create(mail, fname, lname, gender, birthdate, more_params = {})
+
+    # Parse the gender to CCK field def.
+    case gender.downcase
+    when 'male', 'm'
+      gender = '1'
+    when 'female', 'f'
+      gender = '2'
+    end
+
+    required_params = {
+      :mail => mail,
+      :field_firstname => {:'0' => {:value => fname}},
+      :field_lastname => {:'0' => {:value => lname}},
+      :field_user_gender => {:'0' => {:value => gender}},
+      :field_birth_date => {:'0' => {:value => {
+            :month => birthdate.mon.to_s(),
+            :hour => '0',
+            :minute => '0',
+            :second => '0',
+            :day => birthdate.mday.to_s(),
+            :year => birthdate.year.to_s(),
+          }}},
+    }
+
+    # Defaults, can be overridden.
+    more_params = {
+      :notify => '1', # Send welcome email.
+      :force_password_change => '1', # Force password change on first login.
+    }.merge(more_params)
+
+    #[POST] {endpoint}/user + DATA (form_state for user_register form
+    post 'user', required_params.merge(more_params)
   end
 
   def user_join_group(uid, nid)
