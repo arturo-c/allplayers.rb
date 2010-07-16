@@ -10,6 +10,7 @@ class ApcirClient
   def initialize(api_key = nil, base_url = 'www.allplayers.com', protocol = 'http://')
     @uri = Addressable::URI.join(protocol + base_url, '/api/v1/rest/')
     @key = api_key
+    @session_cookies = {}
   end
 
   def login(name, pass)
@@ -57,26 +58,31 @@ class ApcirClient
     post 'node', required_params.merge(more_params)
   end
 
-  def group_create(title, description, location, category, type, more_params = {})
+  def group_create(title, description, location, categories, type, more_params = {})
 
     # Get appropriate Taxonomy term.
-    # @TODO - Handle hierachical taxonomy.  
-    vid = self.taxonomy_vocabulary_list({:module => 'features_group_category'})['item']['vid']
-    tid = self.taxonomy_term_list({:name => category, :vid => vid})['item']['tid']
-
-    # PURL preset names are lowercase.
-    type = type.downcase
+    # @TODO - Handle hierachical taxonomy.
+    vocabulary = {}
+    categories.each do |category|
+      vid = self.taxonomy_vocabulary_list({:module => 'features_group_category'})['item']['vid']
+      tid = self.taxonomy_term_list({:name => category, :vid => vid})['item']['tid'] unless vid.nil?
+      if vocabulary[vid]
+        vocabulary[vid].push(tid)
+      else
+        vocabulary.merge!({vid => [tid]})
+      end
+    end
 
     required_params = {
       :og_description => description,
       :locations => {:'0' => location},
-      :taxonomy => {vid => tid},
-      :spaces_preset_og => type,
+      :taxonomy => vocabulary,
+      :spaces_preset_og => type.downcase,
     }
 
     # Set 'other' type, may not be needed.
-    if (type == 'other' && more_params['spaces_preset_other'].nil?)
-      more_params.merge!({:spaces_preset_other => 'other'})
+    if (type.downcase == 'other' && more_params['spaces_preset_other'].nil?)
+      more_params.merge!({:spaces_preset_other => 'Other'})
     end
 
     # Generate a path if none given.
@@ -94,8 +100,25 @@ class ApcirClient
         :field_group_mates => {:'0' => 'Group Mates'}
     })
 
-    #[POST] {endpoint}/node + DATA (form_state for node_form)
     node_create title, 'group', nil, required_params.merge(more_params)
+  end
+
+  def event_create(title, groups, start_date, end_date, category, body = nil, more_params = {})
+
+    # Get appropriate Taxonomy term.
+    vid = self.taxonomy_vocabulary_list({:module => 'features_event_category'})['item']['vid']
+    tid = self.taxonomy_term_list({:name => category, :vid => vid})['item']['tid']
+
+    required_params = {
+      :og_audience => groups, #TODO - that ain't gonna fly, need to lookup the groups.
+      :taxonomy => {vid => tid},
+      :field_date => {:'0' => {
+          :value => start_date, # TODO - That won't work, need to figure out date format.
+          :value2 => end_date, # TODO - That won't work, need to figure out date format.
+        }}
+    }
+
+    node_create title, 'vevent', body, required_params.merge(more_params)
   end
 
   def taxonomy_vocabulary_list(filters)
@@ -168,19 +191,30 @@ class ApcirClient
     get 'node/' + nid.to_s() + '/roles'
   end
 
+  def group_users_list(nid)
+    #[GET] {endpoint}/node/{nid}/users
+    get 'node/' + nid.to_s() + '/users'
+  end
+
+  def user_groups_list(uid)
+    #[GET] {endpoint}/user/{uid}/groups
+    get 'user/' + uid.to_s() + '/groups'
+  end
+
   def user_group_role_add(uid, nid, rid)
     #[POST] {endpoint}/node/{nid}/addrole/{uid}/{rid}
     post 'node/' + nid.to_s() + '/addrole/' + uid.to_s() + '/' + rid.to_s()
   end
 
   protected
-  def get(path, query = nil, headers = {})
+  def get(path, query = {}, headers = {})
     # @TODO - cache here (HTTP Headers?)
     begin
       uri = Addressable::URI.join(@uri, path)
-      uri.query_values = query if query
+      uri.query_values = query unless query.empty?
       response = RestClient.get(uri.to_s, headers.merge({:cookies => @session_cookies}))
-      # @TODO - Update the cookies?
+      # @TODO - Review this logic - Update the cookies.
+      @session_cookies.merge(response.cookies) unless response.cookies.empty?
       # @TODO - There must be a way to change the base object (XML string to
       #   Hash) while keeping the methods...
       Hash.from_xml(response)['result']
@@ -193,7 +227,8 @@ class ApcirClient
     begin
       uri = Addressable::URI.join(@uri, path)
       response = RestClient.post(uri.to_s, params, headers.merge({:cookies => @session_cookies}))
-      # @TODO - Update the cookies?
+      # @TODO - Review this logic - Update the cookies.
+      @session_cookies.merge(response.cookies) unless response.cookies.empty?
       # @TODO - There must be a way to change the base object (XML string to
       #   Hash) while keeping the methods...
       Hash.from_xml(response)['result']
