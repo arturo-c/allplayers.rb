@@ -28,7 +28,6 @@ class TestApcirClient < Test::Unit::TestCase
     random_first = (0...8).map{65.+(rand(25)).chr}.join
     response = @apci_session.user_create(
       random_first + '@example.com',
-      'password',
       random_first,
       'FakeLast',
       'Male',
@@ -59,6 +58,11 @@ class TestApcirClient < Test::Unit::TestCase
     assert_equal('book', node['type'])
   end
 
+  def test_node_list
+    user = @apci_session.node_list({:nid => '6'})
+    assert_equal("6", user['item']['nid'])
+  end
+
   def test_group_create
     random_title = (0...8).map{65.+(rand(25)).chr}.join
     location = {:postal_code => '75067'}
@@ -73,12 +77,23 @@ class TestApcirClient < Test::Unit::TestCase
     group = @apci_session.node_get(response['nid'])
     assert_equal(random_title, group['title'])
     assert_equal('group', group['type'])
+    assert_equal('Other', group['taxonomy']['item'].first['name'])
   end
 
   def test_group_roles_list
     # node id 116518, dev badminton....
     roles = @apci_session.group_roles_list(108518)
     assert_equal('108518', roles['item'][0]['nid'])
+  end
+
+  def test_taxonomy_vocabulary_list
+    vocab = @apci_session.taxonomy_vocabulary_list({:module => 'features_group_category'})
+    assert_equal("features_group_category", vocab['item']['module'])
+  end
+
+  def test_taxonomy_term_list
+    term = @apci_session.taxonomy_term_list({:name => 'Other'})
+    assert_equal("Other", term['item'][0]['name'])
   end
 
   def test_login
