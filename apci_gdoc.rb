@@ -6,6 +6,7 @@ require 'fastercsv'
 # Hash.from_xml()
 require 'active_support'
 require "addressable/uri"
+require 'highline/import'
 
 class ApciGoogSS
   def initialize(protocol = 'https')
@@ -20,7 +21,7 @@ class ApciGoogSS
       rescue GData::Client::AuthorizationError
         $dz.error("Login Failure", "Something went wrong while logging you in. Check the credentials")
       rescue GData::Client::CaptchaError
-        $dz.error("Login Failure", "There was an error with loggin you in, try to login to Google Docs in your browser and then try again.")
+        $dz.error("Login Failure", "There was an error during login, try to login to Google Docs in your browser and then try again.")
       rescue SocketError
         $dz.error("No connection", "Cannot connect to the Google Docs service, are you connected to the internet?")
       rescue Exception
@@ -28,6 +29,12 @@ class ApciGoogSS
     else
       sleep(1)
     end
+  end
+
+  def interactive_login
+    user = ask("Enter your Google Docs e-mail:  ") { }
+    pass = ask("Enter your Google Docs password:  ") { |q| q.echo = false }
+    self.login( user, pass )
   end
 
   def list
@@ -75,6 +82,16 @@ end
 
 # Functions to aid importing any type of spreadsheet.
 module ImportActions
+  def interactive_login
+    if @session_cookies.empty?
+      user = ask("Enter your Allplayers.com e-mail / user:  ") { }
+      pass = ask("Enter your Allplayers.com password:  ") { |q| q.echo = false }
+      self.login( user, pass )
+    else
+      puts 'Already logged in?'
+    end
+  end
+
   def import_sheet(sheet, name)
     # Take the first row and use it to define columns.  Use only the first line.
     column_defs = sheet.shift.split_first("\n")
@@ -155,7 +172,7 @@ module ImportActions
     return
     
     # TODO - Assign owner uid/name to event.
-    groups = row['event_group_names'] # Lookup group assignments.
+    groups = row['event_group_names'] # TODO - Lookup group assignments.
 
     # Placeholder for additional fields.
     more_params = {}

@@ -82,16 +82,58 @@ class TestApcirClient < Test::Unit::TestCase
 
   def test_group_roles_list
     # node id 116518, dev badminton....
-    roles = @apci_session.group_roles_list(108518)
-    assert_equal('108518', roles['item'][0]['nid'])
+    nid = 116518 # Group ID to test.
+    uid = 10055 # Chris Chris...
+    roles = @apci_session.group_roles_list(nid)
+    assert_equal(nid.to_s, roles['item'][0]['nid'])
+    # Test with a user filter.
+    roles = @apci_session.group_roles_list(nid,uid)
+    # TODO - Crappy test
+    assert_not_nil(roles['item'][0])
   end
 
   def test_group_users_list
     # node id 116518, dev badminton....
-    nid = 116518 # User ID to test.
+    nid = 116518 # Group ID to test.
     users = @apci_session.group_users_list(nid)
     assert_equal(nid.to_s, users['item'][0]['nid'])
     assert_not_nil(users['item'][0]['uid'])
+  end
+
+  def test_user_join_group
+    begin
+      # node id 116518, dev badminton....
+      nid = 116518 # Group ID to test.
+      uid = 9735 # Kat...
+      response = @apci_session.user_join_group(uid, nid)
+      puts response.to_yaml
+      users = @apci_session.group_users_list(nid)
+      puts users.to_yaml
+      assert_equal(nid.to_s, users['item'][0]['nid'])
+      assert_not_nil(users['item'][0]['uid'])
+    ensure
+      # Try to cleanup.
+      response = @apci_session.user_leave_group(uid, nid)
+      puts response.to_yaml
+    end
+  end
+
+  def test_user_leave_group
+    begin
+      # node id 116518, dev badminton....
+      nid = 116518 # Group ID to test.
+      uid = 10055 # Chris Chris...
+      response = @apci_session.user_leave_group(uid, nid)
+      puts response.to_yaml
+      users = @apci_session.group_users_list(nid)
+      puts users.to_yaml
+      assert_equal(nid.to_s, users['item'][0]['nid'])
+      assert_not_nil(users['item'][0]['uid'])
+    ensure
+      # Try to cleanup.
+      response = @apci_session.user_join_group(uid, nid)
+      puts response.to_yaml
+    end
   end
 
   def test_user_groups_list
@@ -102,22 +144,36 @@ class TestApcirClient < Test::Unit::TestCase
   end
 
   def test_user_group_role_add
-    group_nid = 108518
-    uid = 1
-    role_name = 'Admin'
+    # node id 116518, dev badminton....
+    group_nid = 116518
+    uid = 10995 # Glenn Pratt
+    role_name = 'Volunteer'
 
     # Get a rid to assign.
     rid = nil
     roles = @apci_session.group_roles_list(group_nid)
-    roles['item'].each { |role|
+
+    roles['item'].each do | role |
       if role['name'] == role_name
         rid = role['rid']
       end
-    }
+    end
+
+    puts 'rid = ' + rid
 
     response = @apci_session.user_group_role_add(uid, group_nid, rid) unless rid.nil?
-    #puts response.to_yaml
-    assert_equal(1,2) # Randall is working on this one...
+    puts response.to_yaml
+    
+    # Test with a user filter.
+    user_roles = @apci_session.group_roles_list(group_nid, uid)
+    
+    user_role_names = []
+    user_roles['item'].each do | user_role |
+      user_role_names.push(user_role['content'])
+    end
+
+    assert(['1', 'role already granted'].include?(response))
+    assert(user_role_names.include?(role_name))
   end
 
   def test_taxonomy_vocabulary_list
@@ -149,5 +205,4 @@ class TestApcirClient < Test::Unit::TestCase
     # Should verify we are actually logged out here, can't post, no cookies, etc...
     setup()
   end
-
 end

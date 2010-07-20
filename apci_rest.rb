@@ -1,37 +1,32 @@
 require 'rubygems'
 require 'restclient'
 require 'restclient/response'
-# Hopefully better xml parsing...
 require 'xmlsimple'
 require "addressable/uri"
 
 class ApcirClient
 
-  def initialize(api_key = nil, base_url = 'sandbox.allplayers.com', protocol = 'http://')
-    @uri = Addressable::URI.join(protocol + base_url, '/api/v1/rest/')
-    @key = api_key
+  def initialize(api_key = nil, server = 'sandbox.allplayers.com', protocol = 'http://')
+    @base_uri = Addressable::URI.join(protocol + server, '/api/v1/rest/')
+    @key = api_key # TODO - Not implemented in API yet.
     @session_cookies = {}
   end
 
   def login(name, pass)
     begin
-      #[POST] {endpoint}/user/login + DATA (name, pass)
-      uri = Addressable::URI.join(@uri, 'user/login')
-      response = RestClient.post(uri.to_s, {:name => name, :pass => pass})
-      @session_cookies = response.cookies
-      XmlSimple.xml_in(response, { 'ForceArray' => false })
+      post 'user/login' , {:name => name, :pass => pass}
     rescue
-      puts "Session authentication failed."
+      puts "Session authentication error."
     end
   end
 
   def logout()
     begin
-    #[POST] {endpoint}/user/logout
-    post 'user/logout'
+      #[POST] {endpoint}/user/logout
+      post 'user/logout'
     ensure
-    # Delete the cookies.
-    @session_cookies = {}
+      # Delete the cookies.
+      @session_cookies = {}
     end
   end
 
@@ -69,8 +64,8 @@ class ApcirClient
     # @TODO - Handle hierachical taxonomy.
     vocabulary = {}
     categories.each do |category|
-      vid = self.taxonomy_vocabulary_list({:module => 'features_group_category'})['item']['vid']
-      tid = self.taxonomy_term_list({:name => category, :vid => vid})['item']['tid'] unless vid.nil?
+      vid = self.taxonomy_vocabulary_list({:module => 'features_group_category'})['item'][0]['vid']
+      tid = self.taxonomy_term_list({:name => category, :vid => vid})['item'][0]['tid'] unless vid.nil?
       if vocabulary[vid]
         vocabulary[vid].push(tid)
       else
@@ -218,30 +213,33 @@ class ApcirClient
   def get(path, query = {}, headers = {})
     # @TODO - cache here (HTTP Headers?)
     begin
-      uri = Addressable::URI.join(@uri, path)
+      uri = @base_uri.join(path)
+      # TODO - Convert all query values to strings.
       uri.query_values = query unless query.empty?
-      response = RestClient.get(uri.to_s, headers.merge({:cookies => @session_cookies}))
+      headers.merge!({:cookies => @session_cookies}) unless @session_cookies.empty?
+      response = RestClient.get(uri.to_s, headers)
       # @TODO - Review this logic - Update the cookies.
-      @session_cookies.merge(response.cookies) unless response.cookies.empty?
+      @session_cookies.merge!(response.cookies) unless response.cookies.empty?
       # @TODO - There must be a way to change the base object (XML string to
       #   Hash) while keeping the methods...
-      XmlSimple.xml_in(response, { 'ForceArray' => false })
+      XmlSimple.xml_in(response, { 'ForceArray' => ['item'] })
     rescue
-      puts "\nGET failed: " + $!
+      puts "GET failed: " + $!
     end
   end
 
   def post(path, params = {}, headers = {})
     begin
-      uri = Addressable::URI.join(@uri, path)
-      response = RestClient.post(uri.to_s, params, headers.merge({:cookies => @session_cookies}))
+      uri = @base_uri.join(path)
+      headers.merge!({:cookies => @session_cookies}) unless @session_cookies.empty?
+      response = RestClient.post(uri.to_s, params, headers)
       # @TODO - Review this logic - Update the cookies.
-      @session_cookies.merge(response.cookies) unless response.cookies.empty?
+      @session_cookies.merge!(response.cookies) unless response.cookies.empty?
       # @TODO - There must be a way to change the base object (XML string to
       #   Hash) while keeping the methods...
-      XmlSimple.xml_in(response, { 'ForceArray' => false })
+      XmlSimple.xml_in(response, { 'ForceArray' => ['item'] })
     rescue
-      puts "\nPOST failed: " + $!
+      puts "POST failed: " + $!
     end
   end
 end
