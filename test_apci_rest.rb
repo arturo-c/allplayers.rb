@@ -15,27 +15,62 @@ class TestApcirClient < Test::Unit::TestCase
 
   def test_user_get
     # user 1 should always exist, but you might not have permission...
-    user = @apci_session.user_get(1)
-    assert_equal("1", user['uid'])
+    uid = 1
+    user = @apci_session.user_get(uid)
+    assert_equal(uid.to_s, user['uid'])
   end
 
   def test_user_list
     user = @apci_session.user_list({:mail => 'admin@allplayers.com'})
-    assert_equal("1", user['item']['uid'])
+    assert_equal("1", user['item'].first['uid'])
   end
 
   def test_user_create
     random_first = (0...8).map{65.+(rand(25)).chr}.join
+    birthday = Date.new(1983,5,23)
+    school = 'The REST School'
+    more_params = {:field_school => {:'0' => {:value => school}}}
     response = @apci_session.user_create(
       random_first + '@example.com',
       random_first,
       'FakeLast',
       'Male',
-      Date.new(1983,5,23)
+      birthday,
+      more_params
     )
     assert_not_nil(response['uid'])
     user = @apci_session.user_get(response['uid'])
+    # Check firstname.
     assert_equal(random_first, user['field_firstname'])
+    # Check birthday.
+    assert_equal(birthday.to_s, Date.parse(user['field_birth_date']).to_s)
+    assert_equal(school, user['field_school']['item'].first['value'])
+    # @TODO Really should test profile fields, gender, etc.
+  end
+
+  def test_user_create_child
+    parent_1_uid = 10995
+    # TODO - Make someone the parent.
+    more_params = {:field_parents => {:'0' => {:value => parent_1_uid.to_s}}}
+    random_first = (0...8).map{65.+(rand(25)).chr}.join
+    # Make an 11 year old.
+    birthday = Date.today - (365 * 11)
+    response = @apci_session.user_create(
+      random_first + '@example.com',
+      random_first,
+      'FakeLast',
+      'Male',
+      birthday,
+      more_params
+    )
+    assert_not_nil(response['uid'])
+    user = @apci_session.user_get(response['uid'])
+    # Check firstname.
+    assert_equal(random_first, user['field_firstname'])
+    # Check birthday.
+    assert_equal(birthday.to_s, Date.parse(user['field_birth_date']).to_s)
+    # Check parent.
+    assert_equal(parent_1_uid, user['field_firstname'])
     # @TODO Really should test birthdate, gender, etc.
   end
 
@@ -59,8 +94,9 @@ class TestApcirClient < Test::Unit::TestCase
   end
 
   def test_node_list
-    user = @apci_session.node_list({:nid => '6'})
-    assert_equal("6", user['item']['nid'])
+    nid = 6
+    nodes = @apci_session.node_list({:nid => nid.to_s})
+    assert_equal(nid.to_s, nodes['item'].first['nid'])
   end
 
   def test_group_create
@@ -85,19 +121,20 @@ class TestApcirClient < Test::Unit::TestCase
     nid = 116518 # Group ID to test.
     uid = 10055 # Chris Chris...
     roles = @apci_session.group_roles_list(nid)
-    assert_equal(nid.to_s, roles['item'][0]['nid'])
+    #puts roles.to_yaml
+    assert_equal(nid.to_s, roles['item'].first['nid'])
     # Test with a user filter.
     roles = @apci_session.group_roles_list(nid,uid)
     # TODO - Crappy test
-    assert_not_nil(roles['item'][0])
+    assert_not_nil(roles['item'].first)
   end
 
   def test_group_users_list
     # node id 116518, dev badminton....
     nid = 116518 # Group ID to test.
     users = @apci_session.group_users_list(nid)
-    assert_equal(nid.to_s, users['item'][0]['nid'])
-    assert_not_nil(users['item'][0]['uid'])
+    assert_equal(nid.to_s, users['item'].first['nid'])
+    assert_not_nil(users['item'].first['uid'])
   end
 
   def test_user_join_group
@@ -105,16 +142,18 @@ class TestApcirClient < Test::Unit::TestCase
       # node id 116518, dev badminton....
       nid = 116518 # Group ID to test.
       uid = 9735 # Kat...
-      response = @apci_session.user_join_group(uid, nid)
-      puts response.to_yaml
+      @apci_session.user_join_group(uid, nid)
       users = @apci_session.group_users_list(nid)
-      puts users.to_yaml
-      assert_equal(nid.to_s, users['item'][0]['nid'])
-      assert_not_nil(users['item'][0]['uid'])
+
+      users_uids = []
+      users['item'].each do | user |
+        users_uids.push(user['uid'])
+      end
+
+      assert(users_uids.include?(uid.to_s))
     ensure
-      # Try to cleanup.
-      response = @apci_session.user_leave_group(uid, nid)
-      puts response.to_yaml
+      # Remove the user.
+      @apci_session.user_leave_group(uid, nid)
     end
   end
 
@@ -122,68 +161,73 @@ class TestApcirClient < Test::Unit::TestCase
     begin
       # node id 116518, dev badminton....
       nid = 116518 # Group ID to test.
-      uid = 10055 # Chris Chris...
-      response = @apci_session.user_leave_group(uid, nid)
-      puts response.to_yaml
+      uid = 12605 # Corey...
+      @apci_session.user_leave_group(uid, nid)
       users = @apci_session.group_users_list(nid)
-      puts users.to_yaml
-      assert_equal(nid.to_s, users['item'][0]['nid'])
-      assert_not_nil(users['item'][0]['uid'])
+
+
+      users_uids = []
+      users['item'].each do | user |
+        users_uids.push(user['uid'])
+      end
+
+      assert(!users_uids.include?(uid.to_s))
     ensure
-      # Try to cleanup.
-      response = @apci_session.user_join_group(uid, nid)
-      puts response.to_yaml
+      # Put the user back.
+      # TODO - You just bork'd the roles, need to save them and put them back!
+      @apci_session.user_join_group(uid, nid)
     end
   end
 
   def test_user_groups_list
     uid = 1 # User ID to test.
     groups = @apci_session.user_groups_list(uid)
-    assert_equal(uid.to_s, groups['item'][0]['uid'])
-    assert_not_nil(groups['item'][0]['nid'])
+    assert_equal(uid.to_s, groups['item'].first['uid'])
+    assert_not_nil(groups['item'].first['nid'])
   end
 
   def test_user_group_role_add
-    # node id 116518, dev badminton....
-    group_nid = 116518
-    uid = 10995 # Glenn Pratt
-    role_name = 'Volunteer'
+    begin
+      # node id 116518, dev badminton....
+      group_nid = 116518
+      uid = 10995 # Glenn Pratt
+      role_name = 'Volunteer'
 
-    # Get a rid to assign.
-    rid = nil
-    roles = @apci_session.group_roles_list(group_nid)
+      # Get a rid to assign.
+      rid = nil
+      roles = @apci_session.group_roles_list(group_nid)
 
-    roles['item'].each do | role |
-      if role['name'] == role_name
-        rid = role['rid']
+      roles['item'].each do | role |
+        if role['name'] == role_name
+          rid = role['rid']
+        end
       end
+
+      response = @apci_session.user_group_role_add(uid, group_nid, rid) unless rid.nil?
+
+      # Test with a user filter.
+      user_roles = @apci_session.group_roles_list(group_nid, uid)
+
+      user_role_names = []
+      user_roles['item'].each do | user_role |
+        user_role_names.push(user_role['content'])
+      end
+
+      assert(['1', 'role already granted'].include?(response))
+      assert(user_role_names.include?(role_name))
+    ensure
+      # TODO - Remove the role.  Not implemented in API.
     end
-
-    puts 'rid = ' + rid
-
-    response = @apci_session.user_group_role_add(uid, group_nid, rid) unless rid.nil?
-    puts response.to_yaml
-    
-    # Test with a user filter.
-    user_roles = @apci_session.group_roles_list(group_nid, uid)
-    
-    user_role_names = []
-    user_roles['item'].each do | user_role |
-      user_role_names.push(user_role['content'])
-    end
-
-    assert(['1', 'role already granted'].include?(response))
-    assert(user_role_names.include?(role_name))
   end
 
   def test_taxonomy_vocabulary_list
     vocab = @apci_session.taxonomy_vocabulary_list({:module => 'features_group_category'})
-    assert_equal("features_group_category", vocab['item']['module'])
+    assert_equal("features_group_category", vocab['item'].first['module'])
   end
 
   def test_taxonomy_term_list
     term = @apci_session.taxonomy_term_list({:name => 'Other'})
-    assert_equal("Other", term['item'][0]['name'])
+    assert_equal("Other", term['item'].first['name'])
   end
 
   def test_login

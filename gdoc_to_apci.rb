@@ -2,21 +2,22 @@
 require 'rubygems'
 require 'apci_gdoc'
 require 'apci_rest'
+require 'apcir_import_actions'
 require 'highline/import'
 
 def google_docs_import
   # Open a Google Docs Session
   g = ApciGoogSS.new
   puts "Connecting to Google Docs...\n"
-  # TODO - Passwords in code, bleh!  Accept user input.
-  g.interactive_login
+  g.login('user', '')
+  #g.interactive_login
 
   # Spreadsheet search menu
   puts "Listing Spreadsheets...\n"
-  spreadsheets = g.list
+  spreadsheets = g.list_spreadsheets
 
-  choices = {'quit' => 'quit'}
-  spreadsheets['feed']['entry'].each do |spreadsheet|
+  choices = {':quit' => ':quit'}
+  spreadsheets['entry'].each do |spreadsheet|
     choices.merge!({spreadsheet['title'] => spreadsheet})
   end
 
@@ -24,22 +25,23 @@ def google_docs_import
     cmd = ask("Choose spreadsheet:  ", choices.keys.sort) do |q|
       q.readline = true
     end
-    break if cmd == "quit"
+    break if cmd == ":quit"
 
     # Worksheet import menu.
     say("Fetching \"#{cmd}\"...")
     worksheets = g.get_content(choices[cmd]['content']['src'])
+
     # Get spreadsheet key. TODO - This looks fragile.
-    key = worksheets['feed']['id'].split('/')[5]
+    key = worksheets['id'].split('/')[5]
 
     w_ops = {
-      'quit' => 'quit',
+      ':quit' => ':quit',
       ':all' => {'key' => key},
     }
     w_choices = {}
     # LAME - needed for CSV tab #.
     i = 0
-    worksheets['feed']['entry'].each do | worksheet |
+    worksheets['entry'].each do | worksheet |
       w_choices.merge!({worksheet['title'] => worksheet})
       w_choices[worksheet['title']].merge!({'order' => i})
       w_choices[worksheet['title']].merge!({'key' => key})
@@ -50,14 +52,14 @@ def google_docs_import
         q.readline = true
       end
       case cmd
-      when 'quit'
+      when ':quit'
         break
       when ':all'
+        say('Importing all sheets.')
         w_choices.each do | worksheet |
           sheet = g.get_from_csv(worksheet['key'], worksheet['order'])
           @apci_session.import_sheet(sheet, worksheet['title'])
         end
-        say('Imported all sheets.')
         break
       else
         say("Importing \"#{cmd}\"...")
@@ -87,15 +89,20 @@ end
 
 # Extend our API class with import and interactive actions.
 @apci_session.extend ImportActions
-@apci_session.interactive_login
+#@apci_session.interactive_login
+# TODO - Passwords in code = bad! Get password from program arg.
+puts 'Logging into Allplayers.com to save time.'
+@apci_session.login('user', '')
 
-
-
+puts 'Strait into Google Docs to save time.'
+google_docs_import
+=begin
 # Top level menu.
 choose do |menu|
   menu.prompt = "Where will we import from?"
   menu.choice(:'Google Docs') { google_docs_import }
   menu.choices(:'.ODS', :'.CSV') { abort("Sorry, don't have that yet.") }
 end
+=end
 
 @apci_session.logout
