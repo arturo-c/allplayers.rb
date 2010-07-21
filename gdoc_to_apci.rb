@@ -9,8 +9,10 @@ def google_docs_import
   # Open a Google Docs Session
   g = ApciGoogSS.new
   puts "Connecting to Google Docs...\n"
-  g.login('user', '')
-  #g.interactive_login
+  # TODO - Passwords in code, bleh!  Accept user input.
+  #g.login('user', '')
+  g.interactive_login
+  puts
 
   # Spreadsheet search menu
   puts "Listing Spreadsheets...\n"
@@ -83,18 +85,24 @@ ensure
 end
 # End Logging
 
-# TODO - Accept program arguments for server connection.
 # Open an allplayers connection
-@apci_session = ApcirClient.new(nil, 'vbox.allplayers.com')
+@apci_session = nil
+if ARGV[0]
+  puts 'Connecting to ' + ARGV[0]
+  @apci_session = ApcirClient.new(nil, ARGV[0].to_s.strip)
+else
+  @apci_session = ApcirClient.new
+end
 
 # Extend our API class with import and interactive actions.
 @apci_session.extend ImportActions
-#@apci_session.interactive_login
+@apci_session.interactive_login
+puts
 # TODO - Passwords in code = bad! Get password from program arg.
-puts 'Logging into Allplayers.com to save time.'
-@apci_session.login('user', '')
+#puts 'Logging into Allplayers.com to save time.'
+#@apci_session.login('user', '')
 
-puts 'Strait into Google Docs to save time.'
+#puts 'Strait into Google Docs to save time.'
 google_docs_import
 =begin
 # Top level menu.

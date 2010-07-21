@@ -56,6 +56,9 @@ class ApcirClient
 
     #[POST] {endpoint}/node + DATA (form_state for node_form)
     post 'node', required_params.merge(more_params)
+  ensure
+    # Debugging...
+    #puts required_params.merge(more_params).to_yaml
   end
 
   def group_create(title, description, location, categories, type, more_params = {})
@@ -64,8 +67,8 @@ class ApcirClient
     # @TODO - Handle hierachical taxonomy.
     vocabulary = {}
     categories.each do |category|
-      vid = self.taxonomy_vocabulary_list({:module => 'features_group_category'})['item'][0]['vid']
-      tid = self.taxonomy_term_list({:name => category, :vid => vid})['item'][0]['tid'] unless vid.nil?
+      vid = self.taxonomy_vocabulary_list({:module => 'features_group_category'})['item'][0]['vid'].to_s
+      tid = self.taxonomy_term_list({:name => category, :vid => vid})['item'][0]['tid'].to_s unless vid.empty?
       if vocabulary[vid]
         vocabulary[vid].push(tid)
       else
@@ -80,12 +83,11 @@ class ApcirClient
       :spaces_preset_og => type.downcase,
     }
 
-    # Set 'other' type, may not be needed.
-    if (type.downcase == 'other' && more_params['spaces_preset_other'].nil?)
-      more_params.merge!({:spaces_preset_other => 'Other'})
-    end
+    # DOC - To specify 'other' type
+    # more_params.merge!({:spaces_preset_other => 'Other'})
 
-    # Generate a path if none given.
+    # Generate a path with random title, type and random string if none given.
+    # TODO - Check for colisions...
     if more_params['purl'].nil?
       purl_path = (title + ' ' + type).downcase.gsub(/[^0-9a-z]/i, '_')
       more_params.merge!({:purl => {:value => purl_path}})
@@ -96,8 +98,8 @@ class ApcirClient
 
     # APCIHACK - Fix non-required fields...
     more_params.merge!({
-        :field_status => {:'0' => 'Active'},
-        :field_group_mates => {:'0' => 'Group Mates'}
+        :field_status => {:value => 'Active'},
+        :field_group_mates => {:value => 'Group Mates'}
     })
 
     node_create title, 'group', nil, required_params.merge(more_params)
@@ -210,6 +212,11 @@ class ApcirClient
   def user_group_role_add(uid, nid, rid)
     #[POST] {endpoint}/node/{nid}/addrole/{uid}/{rid}
     post 'node/' + nid.to_s() + '/addrole/' + uid.to_s() + '/' + rid.to_s()
+  end
+
+  def user_parent_add(child_uid, parent_uid)
+    #[POST] {endpoint}/user/{child_uid}/addparent/{parent_uid}
+    post 'user/' + child_uid.to_s() + '/addparent/' + parent_uid.to_s()
   end
 
   protected
