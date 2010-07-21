@@ -172,7 +172,10 @@ class ApcirClient
     }.merge(more_params)
 
     #[POST] {endpoint}/user + DATA (form_state for user_register form
-    post 'user', required_params.merge(more_params)
+    response = post 'user', required_params.merge(more_params)
+  ensure
+    # TODO - APCIHACK - Load up user to build cache.
+    self.user_get(response['uid']) unless response.nil?
   end
 
   def user_join_group(uid, nid)
