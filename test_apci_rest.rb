@@ -1,12 +1,58 @@
 #!/usr/bin/ruby
+
+# == TODO RDoc usage help... getoptions...
+#
+# hello: greets user, demonstrates command line parsing
+#
+# == Usage
+#
+# hello [OPTION] ... DIR
+#
+# -h, --help:
+#    show help
+#
+# --repeat x, -n x:
+#    repeat x times
+#
+# --name [name]:
+#    greet user by name, if name not supplied default is John
+#
+# DIR: The directory in which to issue the greeting.
+
 require 'apci_rest'
 require 'test/unit'
+require 'getoptlong'
+require 'rdoc/usage'
+require 'logger'
 
 class TestApcirClient < Test::Unit::TestCase
 
   def setup
-    # Host shouldn't be hard coded!
-    @apci_session = ApcirClient.new(nil, 'mercury.allplayers.com')
+    # Accept host from command line argument. Arguments after -- are sent to the
+    # test and not consumed by the test runner.
+    # ruby test_apci_rest -v -- www.allplayers.com
+    # -v (verbose) is consumed by unit test, www.allplayers.com by this test.
+    if (ARGV[0])
+      @apci_session = ApcirClient.new(nil, ARGV[0])
+    else
+      @apci_session = ApcirClient.new
+    end
+
+    # Make a folder for some logs!
+    path = Dir.pwd + '/test_logs'
+    puts path
+    begin
+      FileUtils.mkdir(path)
+    rescue
+      # Do nothing, it's already there?  Perhaps catch a more specific error?
+    ensure
+      logger = Logger.new(path + '/test.log', 'daily')
+      logger.level = Logger::DEBUG
+      logger.info('initialize') { "Initializing..." }
+      @apci_session.log(logger)
+    end
+
+    # Account shouldn't be hard coded!
     @login_response = @apci_session.login('user', '')
   end
 
@@ -135,7 +181,6 @@ class TestApcirClient < Test::Unit::TestCase
     nid = 116518 # Group ID to test.
     uid = 10055 # Chris Chris...
     roles = @apci_session.group_roles_list(nid)
-    #puts roles.to_yaml
     assert_equal(nid.to_s, roles['item'].first['nid'])
     # Test with a user filter.
     roles = @apci_session.group_roles_list(nid,uid)

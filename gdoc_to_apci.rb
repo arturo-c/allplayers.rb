@@ -1,15 +1,15 @@
 #!/usr/bin/ruby
-require 'rubygems'
 require 'apci_gdoc'
 require 'apci_rest'
 require 'apcir_import_actions'
+require 'rubygems'
 require 'highline/import'
 
 def google_docs_import
   # Open a Google Docs Session
   g = ApciGoogSS.new
   puts "Connecting to Google Docs...\n"
-  # TODO - Passwords in code, bleh!  Accept user input.
+  # TODO - Passwords in code, bleh!
   #g.login('user', '')
   g.interactive_login
   puts
@@ -74,16 +74,7 @@ def google_docs_import
   # End Spreadsheet search menu
 end
 
-# Logging TODO - Get this working. Setup a place to log RestClient requests.
-path = Dir.pwd + '/apci_import_logs'
-begin
-  FileUtils.mkdir(paths)
-rescue
-  # Do nothing, it's already there?
-ensure
-  ENV['RESTCLIENT_LOG']= path + '/REST.log'
-end
-# End Logging
+
 
 # Open an allplayers connection
 @apci_session = nil
@@ -94,6 +85,22 @@ else
   @apci_session = ApcirClient.new
 end
 
+# Make a folder for some logs!
+path = Dir.pwd + '/apci_import_logs'
+begin
+  FileUtils.mkdir(path)
+rescue
+  # Do nothing, it's already there?  Perhaps you should catch a more specific
+  # Message.
+ensure
+  logger = Logger.new(path + 'import_apci.log', 'daily')
+  logger.level = Logger::DEBUG
+  logger.info('initialize') { "Initializing..." }
+end
+
+# End Logging
+@apci_session.log(logger)
+
 # Extend our API class with import and interactive actions.
 @apci_session.extend ImportActions
 @apci_session.interactive_login
@@ -102,7 +109,7 @@ puts
 #puts 'Logging into Allplayers.com to save time.'
 #@apci_session.login('user', '')
 
-#puts 'Strait into Google Docs to save time.'
+puts 'Strait into Google Docs to save time.'
 google_docs_import
 =begin
 # Top level menu.
@@ -114,3 +121,4 @@ end
 =end
 
 @apci_session.logout
+logger.close
