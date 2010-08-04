@@ -1,8 +1,24 @@
 #!/usr/bin/ruby
+# == Synopsis
+#
+# gdoc_to_apci: Tool for importing spreadsheets from Google Docs to
+# Allplayers.com servers.
+#
+# == Usage
+#
+# gdoc_to_apci [OPTION] ... HOST
+#
+# -h, --help:
+#    show help
+#
+# HOST: The target server for imported items (e.g. demo.allplayers.com).
+
 require 'apci_gdoc'
 require 'apci_rest'
 require 'apcir_import_actions'
 require 'rubygems'
+require 'getoptlong'
+require 'rdoc/usage'
 require 'highline/import'
 
 def google_docs_import
@@ -74,13 +90,37 @@ def google_docs_import
   # End Spreadsheet search menu
 end
 
+# Get arguments
+opts = GetoptLong.new(
+  [ '--help', '-h', GetoptLong::NO_ARGUMENT ]
+)
 
+opts.each do |opt, arg|
+  case opt
+    when '--help'
+      RDoc::usage
+  end
+end
+
+# Handle default argument => host to target for import.
+if ARGV.length != 1
+  puts "Missing target host argument (try --help)"
+  exit 0
+else
+  target = ARGV.shift
+  puts defined? target
+end
+puts defined? target
+exit 0
+
+
+# End arguments
 
 # Open an allplayers connection
 @apci_session = nil
 if ARGV[0]
   puts 'Connecting to ' + ARGV[0]
-  @apci_session = ApcirClient.new(nil, ARGV[0].to_s.strip)
+  @apci_session = ApcirClient.new(nil, target)
 else
   @apci_session = ApcirClient.new
 end
