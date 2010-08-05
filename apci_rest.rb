@@ -22,7 +22,7 @@ class ApcirClient
       post 'user/login' , {:name => name, :pass => pass}
     rescue
       puts "Session authentication error."
-      raise
+      raise #Re-raise the error.
     end
   end
 
@@ -31,8 +31,7 @@ class ApcirClient
       #[POST] {endpoint}/user/logout
       post 'user/logout'
     ensure
-      # Delete the cookies.
-      @session_cookies = {}
+      @session_cookies = {} # Delete the cookies.
     end
   end
 
@@ -182,7 +181,7 @@ class ApcirClient
     #[POST] {endpoint}/user + DATA (form_state for user_register form
     response = post 'user', required_params.merge(more_params)
   ensure
-    # TODO - APCIHACK - Load up user to build cache.
+    # APCIHACK - Load up user to build cache.
     self.user_get(response['uid']) unless response.nil?
   end
 

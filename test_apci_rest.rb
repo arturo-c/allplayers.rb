@@ -37,10 +37,9 @@ class TestApcirClient < Test::Unit::TestCase
     else
       @apci_session = ApcirClient.new
     end
-
+    # TODO - Log only with argument (-l)?
     # Make a folder for some logs!
     path = Dir.pwd + '/test_logs'
-    puts path
     begin
       FileUtils.mkdir(path)
     rescue
@@ -75,8 +74,60 @@ class TestApcirClient < Test::Unit::TestCase
   def test_user_create
     random_first = (0...8).map{65.+(rand(25)).chr}.join
     birthday = Date.new(1983,5,23)
-    school = 'The REST School'
-    more_params = {:field_school => {:'0' => {:value => school}}}
+    response = @apci_session.user_create(
+      random_first + '@example.com',
+      random_first,
+      'FakeLast',
+      'Male',
+      birthday
+    )
+    # Check user create response.
+    assert_not_nil(response['uid'])
+    # Get the newly created user.
+    user = @apci_session.user_get(response['uid'])
+    # Check email.
+    assert_equal(random_first + '@example.com', user['mail'])
+    # Check name.
+    assert_equal(random_first, user['field_firstname'])
+    assert_equal('FakeLast', user['field_lastname'])
+    # Check birthday.
+    assert_equal(birthday.to_s, Date.parse(user['field_birth_date']).to_s)
+    # Check gender (1 = Male, 2 = Female) <= Lame
+    assert_equal('1', user['field_user_gender'])
+  end
+
+  def test_user_create_full
+    random_first = (0...8).map{65.+(rand(25)).chr}.join
+    birthday = Date.new(1983,5,23)
+    more_params = {
+      'field_hat_size' => {'0' => {'value' => 'Youth - S'}},
+      'field_pant_size' => {'0' => {'value' => 'Youth - L'}},
+      'field_phone' => {'0' => {'value' => '5555554321'}},
+      'field_organization' => {'0' => {'value' => 'Awesome Test Company'}},
+      'field_school' => {'0' => {'value' => 'The REST School'}},
+      'field_school_grade' => {'0' => {'value' => '10'}},
+      'field_emergency_contact_fname' => {'0' => {'value' => 'Test'}},
+      'field_emergency_contact_lname' => {'0' => {'value' => 'Emergency'}},
+      'field_emergency_contact_phone' => {'0' => {'value' => '555-555-1234'}},
+      'locations' => {'0' => {
+          'street' => '1514 Glencairn Ln.',
+          'additional' => 'Suite 2',
+          'city' => 'Lewisville',
+          #'province' => 'TX',
+          'postal_code' => '75067',
+          'country' => 'us',
+          }
+        },
+      'field_emergency_contact' => {'0' => {
+          'street' => '1514 Glencairn Ln.',
+          'additional' => 'Suite 2',
+          'city' => 'Lewisville',
+          #'province' => 'TX',
+          'postal_code' => '75067',
+          'country' => 'us',
+          }
+        },
+      }
     response = @apci_session.user_create(
       random_first + '@example.com',
       random_first,
@@ -85,20 +136,123 @@ class TestApcirClient < Test::Unit::TestCase
       birthday,
       more_params
     )
+    # Check user create response.
     assert_not_nil(response['uid'])
+    # Get the newly created user.
     user = @apci_session.user_get(response['uid'])
-    # Check firstname.
+
+    puts user.to_yaml
+    # Check email.
+    assert_equal(random_first + '@example.com', user['mail'])
+    # Check name.
     assert_equal(random_first, user['field_firstname'])
+    assert_equal('FakeLast', user['field_lastname'])
     # Check birthday.
     assert_equal(birthday.to_s, Date.parse(user['field_birth_date']).to_s)
-    assert_equal(school, user['field_school']['item'].first['value'])
+    # Check gender (1 = Male, 2 = Female) <= Lame
+    assert_equal('1', user['field_user_gender'])
+
+    assert_equal(more_params['field_hat_size']['0']['value'], user['field_hat_size']['item'].first['value'])
+    assert_equal(more_params['field_pant_size']['0']['value'], user['field_pant_size']['item'].first['value'])
+    assert_equal(more_params['field_phone']['0']['value'], user['field_phone'])
+    assert_equal(more_params['field_organization']['0']['value'], user['field_organization'])
+    assert_equal(more_params['field_school']['0']['value'], user['field_school']['item'].first['value'])
+    assert_equal(more_params['field_school_grade']['0']['value'], user['field_school_grade']['item'].first['value'])
+    assert_equal(more_params['field_emergency_contact_fname']['0']['value'], user['field_emergency_contact_fname']['item'].first['value'])
+    assert_equal(more_params['field_emergency_contact_lname']['0']['value'], user['field_emergency_contact_lname']['item'].first['value'])
+    assert_equal(more_params['field_emergency_contact_phone']['0']['value'], user['field_emergency_contact_phone']['item'].first['value'])
+    # @TODO Really should test profile fields, gender, etc.
+  end
+
+  def test_user_profile_update
+    uid = 1
+
+    profiles = @apci_session.node_list({
+        :uid => uid.to_s,
+        :type => 'profile',
+      })
+    profile = @apci_session.node_get(profiles['item'].first['nid'])
+    puts profile.to_yaml
+    return
+
+    random_first = (0...8).map{65.+(rand(25)).chr}.join
+    birthday = Date.new(1983,5,23)
+    more_params = {
+      'field_hat_size' => {'0' => {'value' => 'Youth - S'}},
+      'field_pant_size' => {'0' => {'value' => 'Youth - L'}},
+      'field_phone' => {'0' => {'value' => '5555554321'}},
+      'field_organization' => {'0' => {'value' => 'Awesome Test Company'}},
+      'field_school' => {'0' => {'value' => 'The REST School'}},
+      'field_school_grade' => {'0' => {'value' => '10'}},
+      'field_emergency_contact_fname' => {'0' => {'value' => 'Test'}},
+      'field_emergency_contact_lname' => {'0' => {'value' => 'Emergency'}},
+      'field_emergency_contact_phone' => {'0' => {'value' => '555-555-1234'}},
+      'locations' => {'0' => {
+          'street' => '1514 Glencairn Ln.',
+          'additional' => 'Suite 2',
+          'city' => 'Lewisville',
+          #'province' => 'TX',
+          'postal_code' => '75067',
+          'country' => 'us',
+          }
+        },
+      'field_emergency_contact' => {'0' => {
+          'street' => '1514 Glencairn Ln.',
+          'additional' => 'Suite 2',
+          'city' => 'Lewisville',
+          #'province' => 'TX',
+          'postal_code' => '75067',
+          'country' => 'us',
+          }
+        },
+      }
+    response = @apci_session.user_create(
+      random_first + '@example.com',
+      random_first,
+      'FakeLast',
+      'Male',
+      birthday,
+      more_params
+    )
+    # Check user create response.
+    assert_not_nil(response['uid'])
+    # Get the newly created user.
+    user = @apci_session.user_get(response['uid'])
+
+    profiles = @apci_session.node_list({:uid => response['uid']})
+    puts profiles.to_yaml
+
+    puts user.to_yaml
+    # Check email.
+    assert_equal(random_first + '@example.com', user['mail'])
+    # Check name.
+    assert_equal(random_first, user['field_firstname'])
+    assert_equal('FakeLast', user['field_lastname'])
+    # Check birthday.
+    assert_equal(birthday.to_s, Date.parse(user['field_birth_date']).to_s)
+    # Check gender (1 = Male, 2 = Female) <= Lame
+    assert_equal('1', user['field_user_gender'])
+
+    assert_equal(more_params['field_hat_size']['0']['value'], user['field_hat_size']['item'].first['value'])
+    assert_equal(more_params['field_pant_size']['0']['value'], user['field_pant_size']['item'].first['value'])
+    assert_equal(more_params['field_phone']['0']['value'], user['field_phone'])
+    assert_equal(more_params['field_organization']['0']['value'], user['field_organization'])
+    assert_equal(more_params['field_school']['0']['value'], user['field_school']['item'].first['value'])
+    assert_equal(more_params['field_school_grade']['0']['value'], user['field_school_grade']['item'].first['value'])
+    assert_equal(more_params['field_emergency_contact_fname']['0']['value'], user['field_emergency_contact_fname']['item'].first['value'])
+    assert_equal(more_params['field_emergency_contact_lname']['0']['value'], user['field_emergency_contact_lname']['item'].first['value'])
+    assert_equal(more_params['field_emergency_contact_phone']['0']['value'], user['field_emergency_contact_phone']['item'].first['value'])
     # @TODO Really should test profile fields, gender, etc.
   end
 
   def test_user_create_child
     parent_1_uid = 10995
     # TODO - Make someone the parent.
-    more_params = {:field_parents => {:'0' => {:value => parent_1_uid.to_s}}}
+    # TODO - Allplayers.net email.
+    more_params = {
+      :field_parents => {:'0' => {:value => parent_1_uid.to_s}},
+      #'email_alternative' => {'value' => '1'}, # Allplayers.net email
+      }
     random_first = (0...8).map{65.+(rand(25)).chr}.join
     # Make an 11 year old.
     birthday = Date.today - (365 * 11)
