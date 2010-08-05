@@ -13,26 +13,32 @@ class ApciGoogSS
 
   def login(user, pass, captcha_token = nil, captcha_answer = nil, service = nil, account_type = nil)
     begin
-      # TODO - Handle CAPTCHA requests.
-      # clientlogin(username, password, captcha_token = nil, captcha_answer = nil, service = nil, account_type = nil)
       @client.clientlogin(user, pass, captcha_token, captcha_answer, service, account_type)
     rescue GData::Client::AuthorizationError
-      $dz.error("Login Failure", "Something went wrong while logging you in. Check the credentials")
-    rescue GData::Client::CaptchaError
-      $dz.error("Login Failure", "There was an error during login, try to login to Google Docs in your browser and then try again.")
+      puts "Login Failure, Something went wrong while logging you in. Check the credentials"
+      raise
+    rescue GData::Client::CaptchaError => e
+      puts "Login Failure, CAPTCHA Requested."
+      puts "Token: #{e.token}\n"
+      puts "http://www.google.com/accounts/#{e.url}"
+      raise
     rescue SocketError
-      $dz.error("No connection", "Cannot connect to the Google Docs service, are you connected to the internet?")
-    rescue Exception
-      $dz.error("Unkown error", "An unkown error happened.")
-    else
-      sleep(1)
+      puts "No connection, Cannot connect to the Google Docs service, are you connected to the internet?"
+      raise
     end
   end
 
-  def interactive_login
-    user = ask("Enter your Google Docs e-mail:  ") { }
-    pass = ask("Enter your Google Docs password:  ") { |q| q.echo = false }
-    self.login( user, pass )
+  def interactive_login(user = nil, pass = nil, captcha_token = nil, captcha_answer = nil, service = nil, account_type = nil)
+    user = ask("Enter your Google Docs e-mail:  ") { } if user.nil?
+    pass = ask("Enter your Google Docs password:  ") { |q| q.echo = false } if pass.nil?
+    self.login(user, pass, captcha_token, captcha_answer, service, account_type)
+  rescue GData::Client::AuthorizationError
+    pass = nil
+    retry
+  rescue GData::Client::CaptchaError => e
+    captcha_answer = ask("Enter the CAPTCHA Text:  ") { }
+    captcha_token = e.token
+    retry
   end
 
   def list_spreadsheets
