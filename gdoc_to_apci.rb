@@ -6,10 +6,13 @@
 #
 # == Usage
 #
-# gdoc_to_apci [OPTION] ... HOST
+# gdoc_to_apci [OPTS] ... [USER@HOST]|[HOST]
 #
-# -h, --help:
-#    show help
+# OPTS:
+#  -h, --help                  show this help (ignores other options)
+#  -p                          session authentication password
+#      --gdoc-mail             Google Docs login name (email)
+#      --gdoc-pass             Google Docs password
 #
 # HOST: The target server for imported items (e.g. demo.allplayers.com).
 
@@ -20,14 +23,13 @@ require 'rubygems'
 require 'getoptlong'
 require 'rdoc/usage'
 require 'highline/import'
+require 'etc'
 
 def google_docs_import
   # Open a Google Docs Session
   g = ApciGoogSS.new
   puts "Connecting to Google Docs...\n"
-  # TODO - Passwords in code, bleh!
-  #g.login('user', '')
-  g.interactive_login
+  g.interactive_login(@gdoc_mail, @gdoc_pass)
   puts
 
   # Spreadsheet search menu
@@ -91,65 +93,64 @@ def google_docs_import
 end
 
 # Get arguments
+user = Etc.getlogin
+pass = nil
+@gdoc_mail = nil
+@gdoc_pass = nil
+
 opts = GetoptLong.new(
-  [ '--help', '-h', GetoptLong::NO_ARGUMENT ]
+  [ '--help', '-h', GetoptLong::NO_ARGUMENT ],
+  [ '-p',       GetoptLong::REQUIRED_ARGUMENT],
+  [ '--gdoc-mail',       GetoptLong::REQUIRED_ARGUMENT],
+  [ '--gdoc-pass',       GetoptLong::REQUIRED_ARGUMENT]
 )
 
 opts.each do |opt, arg|
   case opt
     when '--help'
       RDoc::usage
+    when '-p'
+      pass = arg
+    when '--gdoc-mail'
+      @gdoc_mail = arg
+    when '--gdoc-pass'
+      @gdoc_pass = arg
   end
 end
 
-# Handle default argument => host to target for import.
+# Handle default argument => host to target for import and optional user,
+# (i.e. user@sandbox.allplayers.com).
 if ARGV.length != 1
-  puts "Missing target host argument (try --help)"
-  exit 0
+  puts "No host argument, default used (try --help)"
+  @apci_session = ApcirClient.new
 else
-  target = ARGV.shift
-  puts defined? target
+  host = ARGV.shift.split('@')
+  user = host.shift if host.length > 1
+  puts 'Connecting to ' + host[0] + '...'
+  @apci_session = ApcirClient.new(nil, host[0])
 end
-puts defined? target
-exit 0
-
-
 # End arguments
 
-# Open an allplayers connection
-@apci_session = nil
-if ARGV[0]
-  puts 'Connecting to ' + ARGV[0]
-  @apci_session = ApcirClient.new(nil, target)
-else
-  @apci_session = ApcirClient.new
-end
-
-# Make a folder for some logs!
+# Setup Logging.
 path = Dir.pwd + '/apci_import_logs'
 begin
   FileUtils.mkdir(path)
 rescue
   # Do nothing, it's already there?  Perhaps you should catch a more specific
-  # Message.
+  # message.
 ensure
-  logger = Logger.new(path + 'import_apci.log', 'daily')
+  logger = Logger.new(path + '/import_apci.' + Time.now.to_i.to_s + '.log')
   logger.level = Logger::DEBUG
   logger.info('initialize') { "Initializing..." }
 end
 
-# End Logging
+# End Logging.
 @apci_session.log(logger)
 
 # Extend our API class with import and interactive actions.
 @apci_session.extend ImportActions
-@apci_session.interactive_login
-puts
-# TODO - Passwords in code = bad! Get password from program arg.
-#puts 'Logging into Allplayers.com to save time.'
-#@apci_session.login('user', '')
+@apci_session.interactive_login(user,pass)
 
-puts 'Strait into Google Docs to save time.'
 google_docs_import
 =begin
 # Top level menu.

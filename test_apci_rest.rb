@@ -1,29 +1,29 @@
 #!/usr/bin/ruby
-
-# == TODO RDoc usage help... getoptions...
+# == Synopsis
 #
-# hello: greets user, demonstrates command line parsing
+# test_apci_rest: Test apci_rest API.
 #
 # == Usage
 #
-# hello [OPTION] ... DIR
+# test_apci_rest [UNIT TEST OPTS] -- [OPTS] ... [USER@HOST]|[HOST]
 #
-# -h, --help:
-#    show help
+# UNIT TEST OPTS:
+#  Arguments before -- are sent to Unit Test runner.  See test_apci_rest --help
+#  for help with these arguments.
 #
-# --repeat x, -n x:
-#    repeat x times
+# OPTS:
+#  -h, --help                  show this help (ignores other options)
+#  -p                          session authentication password
 #
-# --name [name]:
-#    greet user by name, if name not supplied default is John
+# HOST: The target server for imported items (e.g. demo.allplayers.com).
 #
-# DIR: The directory in which to issue the greeting.
 
 require 'apci_rest'
 require 'test/unit'
 require 'getoptlong'
 require 'rdoc/usage'
 require 'logger'
+require 'etc'
 
 class TestApcirClient < Test::Unit::TestCase
 
@@ -32,11 +32,40 @@ class TestApcirClient < Test::Unit::TestCase
     # test and not consumed by the test runner.
     # ruby test_apci_rest -v -- www.allplayers.com
     # -v (verbose) is consumed by unit test, www.allplayers.com by this test.
-    if (ARGV[0])
-      @apci_session = ApcirClient.new(nil, ARGV[0])
-    else
-      @apci_session = ApcirClient.new
+
+    # Get arguments
+    user = Etc.getlogin
+    pass = nil
+
+    opts = GetoptLong.new(
+      [ '--help', '-h', GetoptLong::NO_ARGUMENT ],
+      [ '-p',       GetoptLong::REQUIRED_ARGUMENT]
+    )
+
+    opts.each do |opt, arg|
+      case opt
+        when '--help'
+          RDoc::usage
+        when '-p'
+          pass = arg
+      end
     end
+
+    RDoc::usage if pass.nil?
+
+    # Handle default argument => host to target for import and optional user,
+    # (i.e. user@sandbox.allplayers.com).
+    if ARGV.length != 1
+      puts "No host argument, default used (try --help)"
+      @apci_session = ApcirClient.new
+    else
+      host = ARGV.shift.split('@')
+      user = host.shift if host.length > 1
+      puts 'Connecting to ' + host[0]
+      @apci_session = ApcirClient.new(nil, host[0])
+    end
+    # End arguments
+
     # TODO - Log only with argument (-l)?
     # Make a folder for some logs!
     path = Dir.pwd + '/test_logs'
@@ -52,7 +81,7 @@ class TestApcirClient < Test::Unit::TestCase
     end
 
     # Account shouldn't be hard coded!
-    @login_response = @apci_session.login('user', '')
+    @login_response = @apci_session.login(user, pass)
   end
 
   def teardown
@@ -67,7 +96,7 @@ class TestApcirClient < Test::Unit::TestCase
   end
 
   def test_user_list
-    user = @apci_session.user_list({:mail => 'user@allplayers.com'})
+    user = @apci_session.user_list({:mail => 'admin@allplayers.com'})
     assert_equal("1", user['item'].first['uid'])
   end
 
@@ -171,78 +200,37 @@ class TestApcirClient < Test::Unit::TestCase
         :uid => uid.to_s,
         :type => 'profile',
       })
-    profile = @apci_session.node_get(profiles['item'].first['nid'])
-    puts profile.to_yaml
+    nid = profiles['item'].first['nid']
+    profile = @apci_session.node_get(nid)
+    puts profile['field_school'].to_yaml
+
+    params = {
+      'field_school' => {'0' => {'value' => 'Your Mom'}},
+      'field_firstname[0][value]'=> 'Testy',
+      'group-emergency-contact' => {
+        'field_emergency_contact_fname' => {'0' => {'value' => 'Test Emg. Fname'}},
+        'field_emergency_contact_lname' => {'0' => {'value' => 'Test Emg. Lname'}},
+      },
+      'location' => {
+        'street' => {'0' => {'value' => '123 Street Dr.'}},
+        'additional' => {'0' => {'value' => 'Suite 2'}},
+        'city' => {'0' => {'value' => 'Lewisville'}},
+        #'province' => {'0' => {'value' => '123 Street Dr.'}},
+        'postal_code' => {'0' => {'value' => '75067'}},
+        'country' => {'0' => {'value' => 'us'}},
+      },
+    }
+    response = @apci_session.node_update(nid, params)
+    puts 'updating'
+    puts response.to_yaml
+
+    #puts response.to_yaml
+    updated_profile = @apci_session.node_get(nid)
+    puts updated_profile.to_yaml
     return
 
     random_first = (0...8).map{65.+(rand(25)).chr}.join
-    birthday = Date.new(1983,5,23)
-    more_params = {
-      'field_hat_size' => {'0' => {'value' => 'Youth - S'}},
-      'field_pant_size' => {'0' => {'value' => 'Youth - L'}},
-      'field_phone' => {'0' => {'value' => '5555554321'}},
-      'field_organization' => {'0' => {'value' => 'Awesome Test Company'}},
-      'field_school' => {'0' => {'value' => 'The REST School'}},
-      'field_school_grade' => {'0' => {'value' => '10'}},
-      'field_emergency_contact_fname' => {'0' => {'value' => 'Test'}},
-      'field_emergency_contact_lname' => {'0' => {'value' => 'Emergency'}},
-      'field_emergency_contact_phone' => {'0' => {'value' => '555-555-1234'}},
-      'locations' => {'0' => {
-          'street' => '1514 Glencairn Ln.',
-          'additional' => 'Suite 2',
-          'city' => 'Lewisville',
-          #'province' => 'TX',
-          'postal_code' => '75067',
-          'country' => 'us',
-          }
-        },
-      'field_emergency_contact' => {'0' => {
-          'street' => '1514 Glencairn Ln.',
-          'additional' => 'Suite 2',
-          'city' => 'Lewisville',
-          #'province' => 'TX',
-          'postal_code' => '75067',
-          'country' => 'us',
-          }
-        },
-      }
-    response = @apci_session.user_create(
-      random_first + '@example.com',
-      random_first,
-      'FakeLast',
-      'Male',
-      birthday,
-      more_params
-    )
-    # Check user create response.
-    assert_not_nil(response['uid'])
-    # Get the newly created user.
-    user = @apci_session.user_get(response['uid'])
 
-    profiles = @apci_session.node_list({:uid => response['uid']})
-    puts profiles.to_yaml
-
-    puts user.to_yaml
-    # Check email.
-    assert_equal(random_first + '@example.com', user['mail'])
-    # Check name.
-    assert_equal(random_first, user['field_firstname'])
-    assert_equal('FakeLast', user['field_lastname'])
-    # Check birthday.
-    assert_equal(birthday.to_s, Date.parse(user['field_birth_date']).to_s)
-    # Check gender (1 = Male, 2 = Female) <= Lame
-    assert_equal('1', user['field_user_gender'])
-
-    assert_equal(more_params['field_hat_size']['0']['value'], user['field_hat_size']['item'].first['value'])
-    assert_equal(more_params['field_pant_size']['0']['value'], user['field_pant_size']['item'].first['value'])
-    assert_equal(more_params['field_phone']['0']['value'], user['field_phone'])
-    assert_equal(more_params['field_organization']['0']['value'], user['field_organization'])
-    assert_equal(more_params['field_school']['0']['value'], user['field_school']['item'].first['value'])
-    assert_equal(more_params['field_school_grade']['0']['value'], user['field_school_grade']['item'].first['value'])
-    assert_equal(more_params['field_emergency_contact_fname']['0']['value'], user['field_emergency_contact_fname']['item'].first['value'])
-    assert_equal(more_params['field_emergency_contact_lname']['0']['value'], user['field_emergency_contact_lname']['item'].first['value'])
-    assert_equal(more_params['field_emergency_contact_phone']['0']['value'], user['field_emergency_contact_phone']['item'].first['value'])
-    # @TODO Really should test profile fields, gender, etc.
   end
 
   def test_user_create_child
@@ -287,15 +275,38 @@ class TestApcirClient < Test::Unit::TestCase
 
   def test_node_create
     random_title = (0...8).map{65.+(rand(25)).chr}.join
+    body = 'This is a test node generated by test_apci_rest.rb'
     response = @apci_session.node_create(
       random_title,
       'book',
-      'This is a test node generated by test_apci_rest.rb'
+      body
     )
     assert_not_nil(response['nid'])
     node = @apci_session.node_get(response['nid'])
     assert_equal(random_title, node['title'])
     assert_equal('book', node['type'])
+    assert_equal(body, node['body'])
+  end
+
+  def test_node_update
+    random_title = (0...8).map{65.+(rand(25)).chr}.join
+    body = 'This is a test node generated by test_apci_rest.rb.'
+    response = @apci_session.node_create(
+      random_title,
+      'book',
+      body
+    )
+    node = @apci_session.node_get(response['nid'])
+
+    body = body + ' Testing update, blah, blah, blah.'
+    more_params = { :body => body }
+    update_response = @apci_session.node_update(response['nid'], more_params)
+    assert_equal(node['nid'], update_response.first)
+    updated_node = @apci_session.node_get(response['nid'])
+    assert_equal(node['nid'], updated_node['nid'])
+    assert_equal(random_title, updated_node['title'])
+    assert_equal(body, updated_node['body'])
+    assert_equal('book',updated_node['type'])
   end
 
   def test_node_list
@@ -383,7 +394,6 @@ class TestApcirClient < Test::Unit::TestCase
       users['item'].each do | user |
         users_uids.push(user['uid'])
       end
-
       assert(!users_uids.include?(uid.to_s))
     ensure
       # Put the user back.

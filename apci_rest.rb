@@ -20,7 +20,7 @@ class ApcirClient
   def login(name, pass)
     begin
       post 'user/login' , {:name => name, :pass => pass}
-    rescue
+    rescue RestClient::Exception => e
       puts "Session authentication error."
       raise #Re-raise the error.
     end
@@ -66,6 +66,14 @@ class ApcirClient
     #puts required_params.merge(more_params).to_yaml
   end
 
+  def node_update(nid, params)
+    #[PUT] {endpoint}/node + DATA (form_state for node_form)
+    put 'node/' + nid.to_s, params
+  ensure
+    # Debugging...
+    #puts required_params.merge(more_params).to_yaml
+  end
+
   def group_create(title, description, location, categories, type, more_params = {})
 
     # Get appropriate Taxonomy term.
@@ -92,7 +100,7 @@ class ApcirClient
     # more_params.merge!({:spaces_preset_other => 'Other'})
 
     # Generate a path with random title, type and random string if none given.
-    # TODO - Check for colisions...
+    # TODO - Check for collisions...
     if more_params['purl'].nil?
       purl_path = (title + ' ' + type).downcase.gsub(/[^0-9a-z]/i, '_')
       more_params.merge!({:purl => {:value => purl_path}})
@@ -260,7 +268,7 @@ class ApcirClient
     rescue RestClient::Exception => e
       puts "\nPOST failed: " + e.inspect
       puts XmlSimple.xml_in(e.response, { 'ForceArray' => ['item'] }).to_yaml
-      #raise "POST failed: " + e.inspect
+      raise
     end
   end
 
