@@ -15,8 +15,11 @@
 #  -h, --help                  show this help (ignores other options)
 #  -p                          session authentication password
 #
-# HOST: The target server for imported items (e.g. demo.allplayers.com).
+# HOST: The target server for testing REST services (e.g. demo.allplayers.com).
 #
+
+# Change path to the lib directory.
+$:.unshift File.join(File.dirname(__FILE__),'..','lib')
 
 require 'apci_rest'
 require 'test/unit'
@@ -27,15 +30,9 @@ require 'etc'
 
 class TestApcirClient < Test::Unit::TestCase
 
-  def setup
-    # Accept host from command line argument. Arguments after -- are sent to the
-    # test and not consumed by the test runner.
-    # ruby test_apci_rest -v -- www.allplayers.com
-    # -v (verbose) is consumed by unit test, www.allplayers.com by this test.
-
-    # Get arguments
-    user = Etc.getlogin
-    pass = nil
+  def get_args
+    $apci_rest_test_user = Etc.getlogin if $apci_rest_test_user.nil?
+    $apci_rest_test_pass = nil if $apci_rest_test_pass.nil?
 
     opts = GetoptLong.new(
       [ '--help', '-h', GetoptLong::NO_ARGUMENT ],
@@ -47,63 +44,78 @@ class TestApcirClient < Test::Unit::TestCase
         when '--help'
           RDoc::usage
         when '-p'
-          pass = arg
+          $apci_rest_test_pass = arg
       end
     end
 
-    RDoc::usage if pass.nil?
+    RDoc::usage if $apci_rest_test_pass.nil?
 
     # Handle default argument => host to target for import and optional user,
     # (i.e. user@sandbox.allplayers.com).
     if ARGV.length != 1
-      puts "No host argument, default used (try --help)"
-      @apci_session = ApcirClient.new
+      puts "No host argument, connecting to default host (try --help)"
+      $host = nil
     else
-      host = ARGV.shift.split('@')
-      user = host.shift if host.length > 1
-      puts 'Connecting to ' + host[0]
-      @apci_session = ApcirClient.new(nil, host[0])
-    end
-    # End arguments
-
-    # TODO - Log only with argument (-l)?
-    # Make a folder for some logs!
-    path = Dir.pwd + '/test_logs'
-    begin
-      FileUtils.mkdir(path)
-    rescue
-      # Do nothing, it's already there?  Perhaps catch a more specific error?
-    ensure
-      logger = Logger.new(path + '/test.log', 'daily')
-      logger.level = Logger::DEBUG
-      logger.info('initialize') { "Initializing..." }
-      @apci_session.log(logger)
+      host_user = ARGV.shift.split('@')
+      $apci_rest_test_user = host_user.shift if host_user.length > 1
+      $host = host_user[0]
+      puts 'Connecting to ' + $host
     end
 
-    # Account shouldn't be hard coded!
-    @login_response = @apci_session.login(user, pass)
+  end
+
+  def setup
+    if $login_response.nil?
+      if $apci_rest_test_user.nil? || $apci_rest_test_pass.nil?
+        get_args
+      end
+
+      if $apci_session.nil?
+        $apci_session = ApcirClient.new(nil, $host)
+      end
+
+      # End arguments
+
+      # TODO - Log only with argument (-l)?
+      # Make a folder for some logs!
+      path = Dir.pwd + '/test_logs'
+      begin
+        FileUtils.mkdir(path)
+      rescue
+        # Do nothing, it's already there?  Perhaps catch a more specific error?
+      ensure
+        logger = Logger.new(path + '/test.log', 'daily')
+        logger.level = Logger::DEBUG
+        logger.info('initialize') { "Initializing..." }
+        $apci_session.log(logger)
+      end
+
+      # Account shouldn't be hard coded!
+      $login_response = $apci_session.login($apci_rest_test_user, $apci_rest_test_pass)
+    end
+    $apci_session = $apci_session
   end
 
   def teardown
-    @apci_session.logout
+    #$apci_session.logout
   end
 
   def test_user_get
     # user 1 should always exist, but you might not have permission...
     uid = 1
-    user = @apci_session.user_get(uid)
+    user = $apci_session.user_get(uid)
     assert_equal(uid.to_s, user['uid'])
   end
 
   def test_user_list
-    user = @apci_session.user_list({:mail => 'admin@allplayers.com'})
+    user = $apci_session.user_list({:mail => 'admin@allplayers.com'})
     assert_equal("1", user['item'].first['uid'])
   end
 
   def test_user_create
     random_first = (0...8).map{65.+(rand(25)).chr}.join
     birthday = Date.new(1983,5,23)
-    response = @apci_session.user_create(
+    response = $apci_session.user_create(
       random_first + '@example.com',
       random_first,
       'FakeLast',
@@ -113,7 +125,7 @@ class TestApcirClient < Test::Unit::TestCase
     # Check user create response.
     assert_not_nil(response['uid'])
     # Get the newly created user.
-    user = @apci_session.user_get(response['uid'])
+    user = $apci_session.user_get(response['uid'])
     # Check email.
     assert_equal(random_first + '@example.com', user['mail'])
     # Check name.
@@ -157,7 +169,7 @@ class TestApcirClient < Test::Unit::TestCase
           }
         },
       }
-    response = @apci_session.user_create(
+    response = $apci_session.user_create(
       random_first + '@example.com',
       random_first,
       'FakeLast',
@@ -168,7 +180,7 @@ class TestApcirClient < Test::Unit::TestCase
     # Check user create response.
     assert_not_nil(response['uid'])
     # Get the newly created user.
-    user = @apci_session.user_get(response['uid'])
+    user = $apci_session.user_get(response['uid'])
 
     puts user.to_yaml
     # Check email.
@@ -196,12 +208,12 @@ class TestApcirClient < Test::Unit::TestCase
   def test_user_profile_update
     uid = 1
 
-    profiles = @apci_session.node_list({
+    profiles = $apci_session.node_list({
         :uid => uid.to_s,
         :type => 'profile',
       })
     nid = profiles['item'].first['nid']
-    profile = @apci_session.node_get(nid)
+    profile = $apci_session.node_get(nid)
     puts profile['field_school'].to_yaml
 
     params = {
@@ -220,12 +232,12 @@ class TestApcirClient < Test::Unit::TestCase
         'country' => {'0' => {'value' => 'us'}},
       },
     }
-    response = @apci_session.node_update(nid, params)
+    response = $apci_session.node_update(nid, params)
     puts 'updating'
     puts response.to_yaml
 
     #puts response.to_yaml
-    updated_profile = @apci_session.node_get(nid)
+    updated_profile = $apci_session.node_get(nid)
     puts updated_profile.to_yaml
     return
 
@@ -244,7 +256,7 @@ class TestApcirClient < Test::Unit::TestCase
     random_first = (0...8).map{65.+(rand(25)).chr}.join
     # Make an 11 year old.
     birthday = Date.today - (365 * 11)
-    response = @apci_session.user_create(
+    response = $apci_session.user_create(
       random_first + '@example.com',
       random_first,
       'FakeLast',
@@ -255,34 +267,34 @@ class TestApcirClient < Test::Unit::TestCase
     assert_not_nil(response['uid'])
 
     #Assign parent.
-    parenting_response = @apci_session.user_parent_add(response['uid'], parent_1_uid)
-    user = @apci_session.user_get(response['uid'])
+    parenting_response = $apci_session.user_parent_add(response['uid'], parent_1_uid)
+    user = $apci_session.user_get(response['uid'])
     # Check firstname.
     assert_equal(random_first, user['field_firstname'])
     # Check birthday.
     assert_equal(birthday.to_s, Date.parse(user['field_birth_date']).to_s)
     # Check parent.
-    parent = @apci_session.user_get(parent_1_uid)
+    parent = $apci_session.user_get(parent_1_uid)
     assert(user['field_parents'].include? parent['realname'])
     # @TODO Really should test birthdate, gender, etc.
   end
 
   def test_node_get
     # node id 6 should exist, fragile...
-    node = @apci_session.node_get(6)
+    node = $apci_session.node_get(6)
     assert_equal("6", node['nid'])
   end
 
   def test_node_create
     random_title = (0...8).map{65.+(rand(25)).chr}.join
     body = 'This is a test node generated by test_apci_rest.rb'
-    response = @apci_session.node_create(
+    response = $apci_session.node_create(
       random_title,
       'book',
       body
     )
     assert_not_nil(response['nid'])
-    node = @apci_session.node_get(response['nid'])
+    node = $apci_session.node_get(response['nid'])
     assert_equal(random_title, node['title'])
     assert_equal('book', node['type'])
     assert_equal(body, node['body'])
@@ -291,18 +303,18 @@ class TestApcirClient < Test::Unit::TestCase
   def test_node_update
     random_title = (0...8).map{65.+(rand(25)).chr}.join
     body = 'This is a test node generated by test_apci_rest.rb.'
-    response = @apci_session.node_create(
+    response = $apci_session.node_create(
       random_title,
       'book',
       body
     )
-    node = @apci_session.node_get(response['nid'])
+    node = $apci_session.node_get(response['nid'])
 
     body = body + ' Testing update, blah, blah, blah.'
     more_params = { :body => body }
-    update_response = @apci_session.node_update(response['nid'], more_params)
+    update_response = $apci_session.node_update(response['nid'], more_params)
     assert_equal(node['nid'], update_response.first)
-    updated_node = @apci_session.node_get(response['nid'])
+    updated_node = $apci_session.node_get(response['nid'])
     assert_equal(node['nid'], updated_node['nid'])
     assert_equal(random_title, updated_node['title'])
     assert_equal(body, updated_node['body'])
@@ -311,7 +323,7 @@ class TestApcirClient < Test::Unit::TestCase
 
   def test_node_list
     nid = 6
-    nodes = @apci_session.node_list({:nid => nid.to_s})
+    nodes = $apci_session.node_list({:nid => nid.to_s})
     assert_equal(nid.to_s, nodes['item'].first['nid'])
   end
 
@@ -326,7 +338,7 @@ class TestApcirClient < Test::Unit::TestCase
       :postal_code => '75067',
     }
 
-    response = @apci_session.group_create(
+    response = $apci_session.group_create(
      random_title,
      'This is a test group generated by test_apci_rest.rb',
      location,
@@ -335,7 +347,7 @@ class TestApcirClient < Test::Unit::TestCase
      more_params
     )
     assert_not_nil(response['nid'])
-    group = @apci_session.node_get(response['nid'])
+    group = $apci_session.node_get(response['nid'])
     assert_equal(random_title, group['title'])
     assert_equal('group', group['type'])
     assert_equal('Sports', group['taxonomy']['item'].first['name'])
@@ -345,10 +357,10 @@ class TestApcirClient < Test::Unit::TestCase
     # node id 116518, dev badminton....
     nid = 116518 # Group ID to test.
     uid = 10055 # Chris Chris...
-    roles = @apci_session.group_roles_list(nid)
+    roles = $apci_session.group_roles_list(nid)
     assert_equal(nid.to_s, roles['item'].first['nid'])
     # Test with a user filter.
-    roles = @apci_session.group_roles_list(nid,uid)
+    roles = $apci_session.group_roles_list(nid,uid)
     # TODO - Crappy test
     assert_not_nil(roles['item'].first)
   end
@@ -356,7 +368,7 @@ class TestApcirClient < Test::Unit::TestCase
   def test_group_users_list
     # node id 116518, dev badminton....
     nid = 116518 # Group ID to test.
-    users = @apci_session.group_users_list(nid)
+    users = $apci_session.group_users_list(nid)
     assert_equal(nid.to_s, users['item'].first['nid'])
     assert_not_nil(users['item'].first['uid'])
   end
@@ -366,8 +378,8 @@ class TestApcirClient < Test::Unit::TestCase
       # node id 116518, dev badminton....
       nid = 116518 # Group ID to test.
       uid = 9735 # Kat...
-      @apci_session.user_join_group(uid, nid)
-      users = @apci_session.group_users_list(nid)
+      $apci_session.user_join_group(uid, nid)
+      users = $apci_session.group_users_list(nid)
 
       users_uids = []
       users['item'].each do | user |
@@ -377,7 +389,7 @@ class TestApcirClient < Test::Unit::TestCase
       assert(users_uids.include?(uid.to_s))
     ensure
       # Remove the user.
-      @apci_session.user_leave_group(uid, nid)
+      $apci_session.user_leave_group(uid, nid)
     end
   end
 
@@ -386,8 +398,8 @@ class TestApcirClient < Test::Unit::TestCase
       # node id 116518, dev badminton....
       nid = 116518 # Group ID to test.
       uid = 12605 # Corey...
-      @apci_session.user_leave_group(uid, nid)
-      users = @apci_session.group_users_list(nid)
+      $apci_session.user_leave_group(uid, nid)
+      users = $apci_session.group_users_list(nid)
 
 
       users_uids = []
@@ -398,13 +410,13 @@ class TestApcirClient < Test::Unit::TestCase
     ensure
       # Put the user back.
       # TODO - You just bork'd the roles, need to save them and put them back!
-      @apci_session.user_join_group(uid, nid)
+      $apci_session.user_join_group(uid, nid)
     end
   end
 
   def test_user_groups_list
     uid = 1 # User ID to test.
-    groups = @apci_session.user_groups_list(uid)
+    groups = $apci_session.user_groups_list(uid)
     assert_equal(uid.to_s, groups['item'].first['uid'])
     assert_not_nil(groups['item'].first['nid'])
   end
@@ -418,7 +430,7 @@ class TestApcirClient < Test::Unit::TestCase
 
       # Get a rid to assign.
       rid = nil
-      roles = @apci_session.group_roles_list(group_nid)
+      roles = $apci_session.group_roles_list(group_nid)
 
       roles['item'].each do | role |
         if role['name'] == role_name
@@ -426,10 +438,10 @@ class TestApcirClient < Test::Unit::TestCase
         end
       end
 
-      response = @apci_session.user_group_role_add(uid, group_nid, rid) unless rid.nil?
+      response = $apci_session.user_group_role_add(uid, group_nid, rid) unless rid.nil?
 
       # Test with a user filter.
-      user_roles = @apci_session.group_roles_list(group_nid, uid)
+      user_roles = $apci_session.group_roles_list(group_nid, uid)
 
       user_role_names = []
       user_roles['item'].each do | user_role |
@@ -444,32 +456,32 @@ class TestApcirClient < Test::Unit::TestCase
   end
 
   def test_taxonomy_vocabulary_list
-    vocab = @apci_session.taxonomy_vocabulary_list({:module => 'features_group_category'})
+    vocab = $apci_session.taxonomy_vocabulary_list({:module => 'features_group_category'})
     assert_equal("features_group_category", vocab['item'].first['module'])
   end
 
   def test_taxonomy_term_list
-    term = @apci_session.taxonomy_term_list({:name => 'Other'})
+    term = $apci_session.taxonomy_term_list({:name => 'Other'})
     assert_equal("Other", term['item'].first['name'])
   end
 
-  def test_login
-    if @login_response
-      response = @login_response
-    else
-      response = @apci_session.login('user', '')
-      @apci_session.logout
-      setup()
-    end
-    assert_not_nil(response['user']['uid'])
-    assert_not_nil(response['sessid'])
-  end
+  #def test_login
+    #if $login_response
+    #  response = $login_response
+    #else
+    #  response = $apci_session.login($apci_rest_test_user, $apci_rest_test_pass)
+    #  $apci_session.logout
+    #  setup()
+    #end
+    #assert_not_nil(response['user']['uid'])
+    #assert_not_nil(response['sessid'])
+  #end
 
-  def test_logout
-    response = @apci_session.logout
-    assert_equal("1", response)
-    assert_nil(response['sessid'])
+  #def test_logout
+    #response = $apci_session.logout
+    #assert_equal("1", response)
+    #assert_nil(response['sessid'])
     # Should verify we are actually logged out here, can't post, no cookies, etc...
-    setup()
-  end
+    #setup()
+  #end
 end
