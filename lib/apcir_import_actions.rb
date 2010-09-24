@@ -50,7 +50,7 @@ module ImportActions
 
   def interactive_login(user = nil, pass = nil)
     if @session_cookies.empty?
-      user = ask("Enter your Allplayers.com e-mail / user:  ") { } if user.nil?
+      user = ask("Enter your Allplayers.com e-mail / user:  ") { |q| q.echo = true } if user.nil?
       pass = ask("Enter your Allplayers.com password:  ") { |q| q.echo = false } if pass.nil?
       self.login( user, pass )
     else
@@ -62,7 +62,7 @@ module ImportActions
   end
 
   def interactive_node_owner
-    email = ask("Email for the owner of imported nodes:  ") {}
+    email = ask("Email for the owner of imported nodes:  ") { |q| q.echo = true }
     uid = email_to_uid(email)
     unless uid.nil?
       @node_owner_email = email
@@ -285,6 +285,8 @@ module ImportActions
     )
   rescue RestClient::Exception => e
     puts 'Row ' + @row_count.to_s + ': Failed to import ' + description
+  rescue ArgumentError => err
+    puts 'Row ' + @row_count.to_s + ': Invalid Birth Date.  Failed to import ' + description
   else
     if !response.nil?
       increment_stat('Users')

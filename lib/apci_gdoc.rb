@@ -29,7 +29,7 @@ class ApciGoogSS
   end
 
   def interactive_login(user = nil, pass = nil, captcha_token = nil, captcha_answer = nil, service = nil, account_type = nil)
-    user = ask("Enter your Google Docs e-mail:  ") { } if user.nil?
+    user = ask("Enter your Google Docs e-mail:  ") { |q| q.echo = true } if user.nil?
     pass = ask("Enter your Google Docs password:  ") { |q| q.echo = false } if pass.nil?
     self.login(user, pass, captcha_token, captcha_answer, service, account_type)
   rescue GData::Client::AuthorizationError
