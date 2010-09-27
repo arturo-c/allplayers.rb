@@ -287,6 +287,8 @@ module ImportActions
     puts 'Row ' + @row_count.to_s + ': Failed to import ' + description
   rescue ArgumentError => err
     puts 'Row ' + @row_count.to_s + ': Invalid Birth Date.  Failed to import ' + description
+  rescue
+    puts 'Row ' + @row_count.to_s + ': Unknown Error.  Failed to import ' + description
   else
     if !response.nil?
       increment_stat('Users')
