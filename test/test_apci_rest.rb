@@ -250,7 +250,6 @@ class TestApcirClient < Test::Unit::TestCase
     # TODO - Make someone the parent.
     # TODO - Allplayers.net email.
     more_params = {
-      :field_parents => {:'0' => {:value => parent_1_uid.to_s}},
       #'email_alternative' => {'value' => '1'}, # Allplayers.net email
       }
     random_first = (0...8).map{65.+(rand(25)).chr}.join
