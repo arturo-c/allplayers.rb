@@ -80,7 +80,6 @@ module ImportActions
     if @uid_map.has_key?(email)
       @uid_map[email]
     else
-      puts 'Fetching user.'
       user = self.user_list({:mail => email})
       @uid_map[email] = user['item'].first['uid']
     end
@@ -93,7 +92,7 @@ module ImportActions
   def prepare_row(row_array, column_defs)
     @row_count = 1 unless @row_count
     @row_count+=1
-    puts 'Processing row ' + @row_count.to_s
+    puts 'Row ' + @row_count.to_s + ': Processing'
     row = row_array.to_hash(column_defs)
     # Convert everything to a string and strip whitespace.
     row.each { |key,value| row.store(key,value.to_s.strip)}
@@ -151,7 +150,7 @@ module ImportActions
     puts @row_count.to_s + ' rows processed.'
     puts
     puts 'Imported ' + stats_array.sort.join(', ')
-    puts ' in ' + (seconds/60).to_s + ' minutes ' + (seconds % 60).to_s + ' seconds.'
+    puts ' in ' + (seconds / 60).to_s + ' minutes ' + (seconds % 60).to_s + ' seconds.'
     puts
     # End stats
   end
@@ -303,8 +302,6 @@ module ImportActions
     if row.has_key?('group_nid')
       return {:title => row['group_name'], :nid => row['group_nid']}
     end
-
-
 
     if !@node_owner_email
       puts 'Group import requires group owner'

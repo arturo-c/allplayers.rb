@@ -58,6 +58,7 @@ class ApciGoogSS
     puts "Unable to retrieve spreadsheet: " + $!
   end
 
+  # TODO - Try to move away from CSV (or anything that requires the spreadsheet to be manually published).
   def get_from_csv(key, tab)
     begin
       uri = @base_uri.join('pub')
