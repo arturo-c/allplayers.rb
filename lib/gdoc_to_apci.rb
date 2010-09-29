@@ -39,7 +39,6 @@ def google_docs_import
   puts "Listing Spreadsheets...\n"
   #spreadsheets = g.list_spreadsheets
   # APCIHACK - GPRATT - Spreadsheet listing doesn't work on allplayers.com domain.
-  # Ai7w3-2CeY-ddG8wLWtuWmJoeTQwM0dNRXppRTdfbHc
   spreadsheets = {
     'entry' => [
       {
@@ -53,6 +52,13 @@ def google_docs_import
         'title' => 'Apache optimist Football Import',
         'content' => {
           'src' => 'https://spreadsheets.google.com/feeds/worksheets/0Ai7w3-2CeY-ddG8wLWtuWmJoeTQwM0dNRXppRTdfbHc/private/full',
+          'type' => 'application/atom+xml;type=feed',
+        }
+      },
+      {
+        'title' => 'Benton County Youth Football Import',
+        'content' => {
+          'src' => 'https://spreadsheets.google.com/feeds/worksheets/0AqPrqPEA9f2YdC1HYzhCZkN5N00tcU9mZjNRN1RzTlE/private/full',
           'type' => 'application/atom+xml;type=feed',
         }
       },
