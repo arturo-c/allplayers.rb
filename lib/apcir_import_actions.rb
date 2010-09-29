@@ -45,6 +45,13 @@ class Hash
   end
 end
 
+class Date
+  def to_age
+    now = Time.now.utc.to_date
+    now.year - self.year - ((now.month > self.month || (now.month == self.month && now.day >= self.day)) ? 0 : 1)
+  end
+end
+
 # Functions to aid importing any type of spreadsheet to Allplayers.com.
 module ImportActions
 
@@ -211,33 +218,61 @@ module ImportActions
 #- weight
 =end
   def import_user(row, description = 'User')
+    more_params = {}
 
-    # TODO - Handle parent assignment.
+    birthdate = Date.parse(row['birthdate'])
+
+    if birthdate.to_age < 21
+      # Verify parents and get UIDs
+      row['parent_1_uid'] = self.email_to_uid(row['parent_1_email_address']) if row.has_key?('parent_1_email_address')
+      row['parent_2_uid'] = self.email_to_uid(row['parent_2_email_address']) if row.has_key?('parent_2_email_address')
+    end
+
+    # If 13 or under, verify parent, request allplayers.net email if needed.
+    if birthdate.to_age < 14
+      # If 13 or under, no email  & has parent, request allplayers.net email.
+      if !(row.has_key?('parent_1_uid') || row.has_key?('parent_2_uid'))
+        puts 'Row ' + @row_count.to_s + ': Missing parents for '+ description +' age 13 or less.'
+        return {}
+      end
+    end
+
+    # Request allplayers.net email if needed.
+    if !row.has_key?('email_address')
+      # If 13 or under, no email  & has parent, request allplayers.net email.
+      if row.has_key?('parent_1_uid') || row.has_key?('parent_2_uid')
+        # Request allplayers.net email
+        # TODO - Avoid creating duplicate children.
+        more_params['email_alternative'] = {:value => 1}
+      else
+        puts 'Row ' + @row_count.to_s + ': Missing parents for '+ description +' without email address.'
+        return {}
+      end
+    end
 
     # Check required fields
     missing_fields = ['email_address', 'first_name', 'last_name', 'gender', 'birthdate'].reject {
       |field| row.has_key?(field) && !row[field].nil? && !row[field].empty?
     }
+    # Ignore missing email if requesting allplayers.net email.
+    missing_fields.delete('email_address') if more_params.has_key?('email_alternative')
     if !missing_fields.empty?
       puts 'Row ' + @row_count.to_s + ': Missing required fields for '+ description +': ' + missing_fields.join(', ')
       return {}
     end
-    
+
     users = self.user_list({:mail => row['email_address']})
     if (users.has_key?('item') && users['item'].first['mail'] == row['email_address'])
       puts 'Row ' + @row_count.to_s + ': ' + description +' already exists: ' + users['item'].first['mail'] + '. No associated fields will be imported.'
       return {:mail => users['item'].first['mail']}
     end
 
-    puts 'Importing User: ' + row['email_address']
+    puts 'Row ' + @row_count.to_s + ': Importing ' + description +': ' + row['first_name'] + ' ' + row['last_name']
 
-    # TODO - If under 13 & has parent, assign Allplayers.net email.
     # TODO - Parse height into feet decimal value (precision 2?).
     # TODO - Shoe size might be a disaster - string to integer...
     # TODO - Test if all fields need 0 => value pattern or just value.
-    # TODO - SMS...
 
-    more_params = {}
     more_params['field_emergency_contact_fname'] = {:'0' => {:value => row['emergency_contact_first_name']}} if row.has_key?('emergency_contact_first_name')
     more_params['field_emergency_contact_lname'] = {:'0' => {:value => row['emergency_contact_last_name']}} if row.has_key?('emergency_contact_last_name')
     more_params['field_emergency_contact_phone'] = {:'0' => {:value => row['emergency_contact_number']}} if row.has_key?('emergency_contact_number')
@@ -269,29 +304,28 @@ module ImportActions
     emergency_contact_location['country'] =  row['emergency_contact_country'] if row.has_key?('emergency_contact_country')
     more_params['field_emergency_contact'] = {:'0' => emergency_contact_location} unless emergency_contact_location.empty?
 
-    parents = {}
-    parents['0'] = {'value' => [self.email_to_uid(row['parent_1_email_address'])].to_s} if row.has_key?('parent_1_email_address')
-    parents['1'] = {'value' => [self.email_to_uid(row['parent_2_email_address'])].to_s} if row.has_key?('parent_2_email_address')
-    more_params['field_parents'] = parents unless parents.empty?
-
     response = self.user_create(
       row['email_address'],
       row['first_name'],
       row['last_name'],
       row['gender'],
-      Date.parse(row['birthdate']),
+      birthdate,
       more_params
     )
   rescue RestClient::Exception => e
     puts 'Row ' + @row_count.to_s + ': Failed to import ' + description
   rescue ArgumentError => err
     puts 'Row ' + @row_count.to_s + ': Invalid Birth Date.  Failed to import ' + description
-  rescue
-    puts 'Row ' + @row_count.to_s + ': Unknown Error.  Failed to import ' + description
+    puts err.to_yaml
+  #rescue
+  #  puts 'Row ' + @row_count.to_s + ': Unknown Error.  Failed to import ' + description
   else
     if !response.nil?
       increment_stat('Users')
       increment_stat(description + 's') if description != 'User'
+      response['parenting_1_response'] = self.user_parent_add(response['uid'], row['parent_1_uid']) if row.has_key?('parent_1_uid')
+      response['parenting_2_response'] = self.user_parent_add(response['uid'], row['parent_2_uid']) if row.has_key?('parent_2_uid')
+      return response
     end
     #log stuff!!
   end
