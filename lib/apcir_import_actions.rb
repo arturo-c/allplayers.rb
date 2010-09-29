@@ -170,13 +170,16 @@ module ImportActions
         user = row.key_filter(key)
         description = key.split('_').join(' ').strip.capitalize
         if key == 'participant_'
-          # TODO - Under 13 Check (do it in import user, not here).
           # Add in Parent email addresses.
-          user.merge!(row.reject {|key, value|  !key.include?('email_address')})
+          user.merge!(row.reject {|k, value|  !k.include?('email_address')})
         end
         responses[key] = import_user(user, description) unless user.empty?
       end
     }
+
+    # Update participant with responses.  We're done with parents.
+    row['participant_uid'] = responses['participant_']['uid']
+    row['participant_email_address'] = responses['participant_']['mail']
 
     # Group Assignment + Participant
     # TODO - Create per session Group title - NID (email - UID too?) map to prefer nodes created.
@@ -454,18 +457,21 @@ module ImportActions
   end
 
   def import_user_group_role(row)
-    if row.has_key?('email_address')
-      email = row['email_address']
+    # Check User.
+    if row.has_key?('uid')
+      uid = row['uid']
+    elsif row.has_key?('email_address')
+      email_to_uid(row['email_address'])
     else
       puts 'Row ' + @row_count.to_s + ": User can't be added to group without email address."
       return
     end
+
+    # Check Group
     if !row.has_key?('name')
-      puts 'Row ' + @row_count.to_s + ': User ' + email + " can't be added to group without group name."
+      puts 'Row ' + @row_count.to_s + ': User ' + row['first_name'] + ' ' + row['last_name'] + " can't be added to group without group name."
       return
     end
-    # Lookup UID by email.
-    uid = self.user_list({:mail => email})['item'].first['uid']
 
     nid = nil
     if nid.nil?
