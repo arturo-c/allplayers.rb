@@ -5,6 +5,9 @@ require 'xmlsimple'
 require "addressable/uri"
 require 'highline/import'
 
+# Stop EOF errors in Highline
+HighLine.track_eof = false
+
 class ApciGoogSS
   def initialize(protocol = 'https')
     @client = GData::Client::Spreadsheets.new

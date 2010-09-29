@@ -5,6 +5,9 @@ require 'rubygems'
 require 'highline/import'
 require 'active_support'
 
+# Stop EOF errors in Highline
+HighLine.track_eof = false
+
 # Add some tools to Array to make parsing spreadsheet rows easier.
 class Array
   # Little utility to convert array to Hash with defined keys.

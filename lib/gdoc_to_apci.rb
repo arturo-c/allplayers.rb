@@ -25,6 +25,9 @@ require 'rdoc/usage'
 require 'highline/import'
 require 'etc'
 
+# Stop EOF errors in Highline
+HighLine.track_eof = false
+
 def google_docs_import
   # Open a Google Docs Session
   g = ApciGoogSS.new
