@@ -73,25 +73,30 @@ module ImportActions
 
   def interactive_node_owner
     email = ask("Email for the owner of imported nodes:  ") { |q| q.echo = true }
-    uid = email_to_uid(email)
-    unless uid.nil?
-      @node_owner_email = email
-    else
-      raise email + ' not found, try importing again.'
-      return false
+    begin
+      uid = email_to_uid(email)
+    rescue
+      puts 'Error locating user: ' + email
+      retry
     end
-  rescue
-    retry
+    if uid.nil?
+      raise
+    end
+    @node_owner_email = email unless uid.nil?
+    uid
   end
 
 
   def email_to_uid(email)
+    # Static cache
     @uid_map = Hash.new unless defined? @uid_map
-    if @uid_map.has_key?(email)
-      @uid_map[email]
-    else
-      user = self.user_list({:mail => email})
-      @uid_map[email] = user['item'].first['uid']
+    if !@uid_map.has_key?(email)
+      users = self.user_list({:mail => email})
+      if users.has_key?('item') && users['item'].length == 1
+        @uid_map[email] = users['item'].first['uid']
+      else
+        raise
+      end
     end
     @uid_map[email]
   rescue
@@ -157,6 +162,7 @@ module ImportActions
     seconds = (Time.now - start_time).to_i
     stats_array = []
     @stats.each { |key,value| stats_array.push(key.to_s + ': ' + value.to_s) unless value.nil? or value == 0}
+    puts
     puts @row_count.to_s + ' rows processed.'
     puts
     puts 'Imported ' + stats_array.sort.join(', ')
@@ -337,7 +343,6 @@ module ImportActions
   end
 
   def import_group(row)
-
     # If importing to existing NID, just return spreadsheet values.
     if row.has_key?('group_nid')
       return {:title => row['group_name'], :nid => row['group_nid']}
