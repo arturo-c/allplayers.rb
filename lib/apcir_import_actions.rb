@@ -381,11 +381,13 @@ module ImportActions
 
     # TODO - Assign owner uid/name to group. Seperate this...
     uid = email_to_uid(@node_owner_email)
+    owner = self.user_get(uid)
 
     more_params = {
-      :uid => uid.to_s,
+      :uid => uid.to_s
     }
-  
+    more_params['name'] = owner['name'] if owner.has_key?('name')
+
     # TODO - Warn before creating duplicate named groups.
 
     # TODO - Group Above
