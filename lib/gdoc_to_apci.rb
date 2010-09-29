@@ -34,7 +34,27 @@ def google_docs_import
 
   # Spreadsheet search menu
   puts "Listing Spreadsheets...\n"
-  spreadsheets = g.list_spreadsheets
+  #spreadsheets = g.list_spreadsheets
+  # APCIHACK - GPRATT - Spreadsheet listing doesn't work on allplayers.com domain.
+  # Ai7w3-2CeY-ddG8wLWtuWmJoeTQwM0dNRXppRTdfbHc
+  spreadsheets = {
+    'entry' => [
+      {
+        'title' => 'Import Template',
+        'content' => {
+          'src' => 'https://spreadsheets.google.com/feeds/worksheets/0AjgSHHY0WHyydDhlZ2dyXzBmcW5OQkVRclhweEdyeVE/private/full',
+          'type' => 'application/atom+xml;type=feed',
+        }
+      },
+      {
+        'title' => 'Apache optimist Football Import',
+        'content' => {
+          'src' => 'https://spreadsheets.google.com/feeds/worksheets/0Ai7w3-2CeY-ddG8wLWtuWmJoeTQwM0dNRXppRTdfbHc/private/full',
+          'type' => 'application/atom+xml;type=feed',
+        }
+      },
+    ]
+  }
 
   choices = {':quit' => ':quit'}
   spreadsheets['entry'].each do |spreadsheet|
