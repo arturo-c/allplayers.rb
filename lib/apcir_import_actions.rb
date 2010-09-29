@@ -298,10 +298,11 @@ module ImportActions
       return {}
     end
 
-    users = self.user_list({:mail => row['email_address']})
-    if (users.has_key?('item') && users['item'].first['mail'] == row['email_address'])
-      puts 'Row ' + @row_count.to_s + ': ' + description +' already exists: ' + users['item'].first['mail'] + '. No associated fields will be imported.'
-      return {:mail => users['item'].first['mail']}
+    # Check if user already exists
+    uid = email_to_uid(row['email_address']) rescue false
+    if uid
+      puts 'Row ' + @row_count.to_s + ': ' + description +' already exists: ' + row['email_address'] + ' at UID: ' + uid + '. No associated fields will be imported.'
+      return {:mail => row['email_address'], :uid => uid }
     end
 
     puts 'Row ' + @row_count.to_s + ': Importing ' + description +': ' + row['first_name'] + ' ' + row['last_name']
@@ -322,7 +323,7 @@ module ImportActions
     more_params['field_shoe_size'] = {:'0' => {:value => row['shoe_size']}} if row.has_key?('shoe_size')
     #    more_params['field_size'] = {:'0' => {:value => row['shirt_size']}} if row.has_key?('shirt_size')
     more_params['field_weight'] = {:'0' => {:value => row['weight']}} if row.has_key?('weight')
-    
+
     location = {}
     location['street'] =  row['primary_address_1'] if row.has_key?('primary_address_1')
     location['additional'] =  row['primary_address_2'] if row.has_key?('primary_address_2')
@@ -445,7 +446,7 @@ module ImportActions
       owner_group['group_name'] = response['title']
       owner_group['group_role'] = 'Admin'
       response['owner'] = import_user_group_role(owner_group)
-    end 
+    end
   end
 
   def import_event(row)
