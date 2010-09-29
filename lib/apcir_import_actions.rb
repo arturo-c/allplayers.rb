@@ -40,10 +40,10 @@ class Array
 end
 
 class Hash
-  def key_filter(pattern)
+  def key_filter(pattern, replacement = '')
     hsh = {}
     filtered = self.reject { |key,value| key.match(pattern).nil? }
-    filtered.each { |key,value| hsh[key.sub(pattern,'')] = value }
+    filtered.each { |key,value| hsh[key.sub(pattern, replacement)] = value }
     hsh
   end
 end
@@ -168,27 +168,27 @@ module ImportActions
   def import_mixed_user(row)
     # Import Users (Make sure parents come first).
     responses = {}
-    ['parent_1_', 'parent_2_',  'participant_'].each {|key|
-      begin
-        user = row.key_filter(key)
-        description = key.split('_').join(' ').strip.capitalize
-        if key == 'participant_'
-          # Add in Parent email addresses.
-          user.merge!(row.reject {|k, value|  !k.include?('email_address')})
-        end
-        responses[key] = import_user(user, description) unless user.empty?
-      end
+    ['parent_1_', 'parent_2_',  'participant_'].each {|prefix|
+      user = row.key_filter(prefix)
+      # Add in Parent email addresses if this is the participant.
+      user.merge!(row.reject {|key, value|  !key.include?('email_address')}) if prefix == 'participant_'
+      description = prefix.split('_').join(' ').strip.capitalize
+
+      responses[prefix] = import_user(user, description) unless user.empty?
     }
 
     # Update participant with responses.  We're done with parents.
-    row['participant_uid'] = responses['participant_']['uid']
-    row['participant_email_address'] = responses['participant_']['mail']
+    row['participant_uid'] = responses['participant_']['uid'] if responses['participant_'].has_key?('uid')
+    row['participant_email_address'] = responses['participant_']['mail'] unless row.has_key?('participant_email_address')
 
     # Group Assignment + Participant
     # TODO - Create per session Group title - NID (email - UID too?) map to prefer nodes created.
-    group_user = row.key_filter('participant_').merge!(row.reject {|key, value|  key.starts_with?('group_')})
-    gadd_response = import_user_group_role(group_user)
-    puts gadd_response.to_yaml
+    ['group_1_', 'group_2_',  'group_3_'].each {|prefix|
+      group = row.key_filter(prefix, 'group_')
+      user = row.key_filter('participant_')
+      responses[prefix] = import_user_group_role(user.merge(group)) unless group.empty?
+    }
+    puts '---'
   end
 
 =begin
