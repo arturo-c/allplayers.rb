@@ -104,6 +104,31 @@ module ImportActions
     raise
   end
 
+  def group_name_to_nid(name)
+    # Lookup group by name (and group owner if possible)
+    nodes = node_list({
+        :type => 'group',
+        :title => name,
+      })
+    if nodes.has_key?('item') && nodes['item'].length == 1
+      nid = nodes['item'].first['nid']
+    else
+      raise
+    end
+  end
+
+  def group_role_to_rid(role, nid)
+    roles = self.group_roles_list(nid)
+
+    roles['item'].each do | role |
+      if role['name'] == role && role.has_key?('rid')
+        return role['rid']
+      end
+    end
+    # Didn't find group role.
+    raise
+  end
+
   def prepare_row(row_array, column_defs)
     @row_count = 1 unless @row_count
     @row_count+=1
@@ -414,32 +439,13 @@ module ImportActions
       @group_nid_map[row['group_name']] = response['nid']
 
       # Assign Owner.
-      uid = @node_owner_uid
-      nid = response['nid']
-      #Join owner and assign admin role
-      begin
-        self.user_join_group(@node_owner_uid, nid)
-      rescue RestClient::Exception => e
-        puts 'Row ' + @row_count.to_s + ': Failed add owner (' + @node_owner_email + ') to group (' + row['group_name']
-      end
-
-      # Get Admin rid to assign.
-      rid = nil
-      roles = self.group_roles_list(nid)
-
-      roles['item'].each { | role |
-        if role['name'] == 'Admin'
-          rid = role['rid']
-          break
-        end
-      }
-
-      begin
-        self.user_group_role_add(@node_owner_uid, nid, rid) unless rid.nil?
-      rescue RestClient::Exception => e
-        puts 'Row ' + @row_count.to_s + ': Failed assign owner (' + @node_owner_email + ') Admin role in group (' + row['group_name']
-      end
-    end
+      owner_group = {}
+      owner_group['uid'] = @node_owner_uid
+      owner_group['group_nid'] = response['nid']
+      owner_group['group_name'] = response['title']
+      owner_group['group_role'] = 'Admin'
+      response['owner'] = import_user_group_role(owner_group)
+    end 
   end
 
   def import_event(row)
@@ -469,50 +475,44 @@ module ImportActions
     if row.has_key?('uid')
       uid = row['uid']
     elsif row.has_key?('email_address')
-      email_to_uid(row['email_address'])
+      uid = email_to_uid(row['email_address'])
     else
       puts 'Row ' + @row_count.to_s + ": User can't be added to group without email address."
       return
     end
 
     # Check Group
-    if !row.has_key?('name')
+    if row.has_key?('group_nid')
+      nid = row['group_nid']
+    elsif row.has_key?('group_name')
+      begin
+        nid = group_name_to_nid(row['group_name'])
+      rescue
+        puts 'Row ' + @row_count.to_s + ": Can't locate group " + row['group_name']
+        return
+      end
+    else
       puts 'Row ' + @row_count.to_s + ': User ' + row['first_name'] + ' ' + row['last_name'] + " can't be added to group without group name."
       return
     end
 
-    nid = nil
-    if nid.nil?
-      # Lookup group by name (and group owner if possible)
-      nodes = node_list({
-          :type => 'group',
-          :title => row['name'],
-        })
-      if nodes.has_key?('item') && nodes['item'].length == 1
-        nid = nodes['item'].first['nid']
-      else
-        puts "Couldn't find group: " + row['name'] + ' for: ' + email
-        return
-      end
-    end
-
-
+    response = {}
     # Join the group.
-    join_response = self.user_join_group(uid, nid)
+    response['join'] = self.user_join_group(uid, nid)
 
-    # Get a rid to assign.
-    rid = nil
-    roles = self.group_roles_list(nid)
-
-    roles['item'].each do | role |
-      if role['name'] == row['role']
-        rid = role['rid']
-        break
+    # Add to group role
+    if row.has_key?('group_role')
+      # Get a rid to assign.
+      begin
+        rid = group_role_to_rid(row['group_role'], nid)
+      rescue
+        puts 'Row ' + @row_count.to_s + ": Can't locate role " + row['group_role'] + ' in group ' + row['group_name']
       end
+      response['role'] = self.user_group_role_add(uid, nid, rid) unless rid.nil?
     end
-
-    response = self.user_group_role_add(uid, nid, rid) unless rid.nil?
 
     #log stuff!!
+
+    response
   end
 end
