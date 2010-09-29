@@ -247,10 +247,17 @@ class ApcirClient
       # @TODO - There must be a way to change the base object (XML string to
       #   Hash) while keeping the methods...
       XmlSimple.xml_in(response, { 'ForceArray' => ['item'] })
+    rescue REXML::ParseException => xml_err
+        puts "\nFailed to parse server response."
+        raise
     rescue RestClient::Exception => e
-      puts '\nGET Failed: ' + e.inspect
-      puts XmlSimple.xml_in(e.response, { 'ForceArray' => ['item'] }).to_yaml
-      #raise 'GET Failed: ' + e.inspect
+      puts "\nGET failed: " + e.inspect
+      begin
+        puts XmlSimple.xml_in(e.response, { 'ForceArray' => ['item'] }).to_yaml
+      rescue REXML::ParseException => xml_err
+        puts "\nFailed to parse server error."
+      end
+      #raise
     end
   end
 
@@ -265,10 +272,17 @@ class ApcirClient
       # @TODO - There must be a way to change the base object (XML string to
       #   Hash) while keeping the methods...
       XmlSimple.xml_in(response, { 'ForceArray' => ['item'] })
+    rescue REXML::ParseException => xml_err
+        puts "\nFailed to parse server response."
+        #raise
     rescue RestClient::Exception => e
       puts "\nPOST failed: " + e.inspect
-      puts XmlSimple.xml_in(e.response, { 'ForceArray' => ['item'] }).to_yaml
-      raise
+      begin
+        puts XmlSimple.xml_in(e.response, { 'ForceArray' => ['item'] }).to_yaml
+      rescue REXML::ParseException => xml_err
+        puts "\nFailed to parse server error."
+      end
+      #raise
     end
   end
 
@@ -283,10 +297,17 @@ class ApcirClient
       # @TODO - There must be a way to change the base object (XML string to
       #   Hash) while keeping the methods...
       XmlSimple.xml_in(response, { 'ForceArray' => ['item'] })
+    rescue REXML::ParseException => xml_err
+      puts "\nFailed to parse server response."
+      #raise
     rescue RestClient::Exception => e
       puts "\nPUT failed: " + e.inspect
-      puts XmlSimple.xml_in(e.response, { 'ForceArray' => ['item'] }).to_yaml
-      #raise "PUT failed: " + e.inspect
+      begin
+        puts XmlSimple.xml_in(e.response, { 'ForceArray' => ['item'] }).to_yaml
+      rescue REXML::ParseException => xml_err
+        puts "\nFailed to parse server error."
+      end
+      #raise
     end
   end
 end
