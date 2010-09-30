@@ -274,7 +274,7 @@ class ApcirClient
       XmlSimple.xml_in(response, { 'ForceArray' => ['item'] })
     rescue REXML::ParseException => xml_err
         puts "\nFailed to parse server response."
-        #raise
+        raise
     rescue RestClient::Exception => e
       puts "\nPOST failed: " + e.inspect
       begin
@@ -282,7 +282,7 @@ class ApcirClient
       rescue REXML::ParseException => xml_err
         puts "\nFailed to parse server error."
       end
-      #raise
+      raise
     end
   end
 
