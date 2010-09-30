@@ -375,23 +375,32 @@ module ImportActions
       return {:title => row['group_name'], :nid => row['group_nid']}
     end
 
-    if !@node_owner_email
+    # Assign owner uid/name to group.
+    # TODO - Move node ownership into the apci_rest library.  All nodes should
+    # have an owner, generally not admin.
+    if @node_owner_email
+      begin
+        uid = email_to_uid(@node_owner_email)
+        owner = self.user_get(uid)
+        raise if !owner.has_key?('name')
+      rescue
+        puts "Couldn't get group owner: " + @node_owner_email
+        return {}
+      end
+    else
       puts 'Group import requires group owner'
       return {}
     end
 
-    # TODO - Assign owner uid/name to group. Seperate this...
-    uid = email_to_uid(@node_owner_email)
-    owner = self.user_get(uid)
-
     more_params = {
-      :uid => uid.to_s
+      :uid => uid.to_s,
+      :name => owner['name'],
     }
-    more_params['name'] = owner['name'] if owner.has_key?('name')
 
     # TODO - Warn before creating duplicate named groups.
 
-    # TODO - Group Above
+    # Group Above
+    # TODO - Move node searching into a separate function.
     if row.has_key?('group_above') && !row['group_above'].empty?
       # Lookup group by name (and group owner if possible)
       nodes = node_list({
