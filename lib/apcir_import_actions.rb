@@ -461,7 +461,7 @@ module ImportActions
       owner_group = {}
       owner_group['uid'] = @node_owner_uid
       owner_group['group_nid'] = response['nid']
-      owner_group['group_name'] = response['title']
+      owner_group['group_name'] = row['group_name']
       owner_group['group_role'] = 'Admin'
       response['owner'] = import_user_group_role(owner_group)
     end
