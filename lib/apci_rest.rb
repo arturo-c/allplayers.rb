@@ -203,9 +203,9 @@ class ApcirClient
     post 'node/' + nid.to_s() + '/leave/' + uid.to_s()
   end
 
-  def group_roles_list(nid, uid = '')
+  def group_roles_list(nid, uid = nil)
     #[GET] {endpoint}/node/{nid}/roles(/uid)
-    if uid
+    if uid.nil?
       get 'node/' + nid.to_s() + '/roles/' + uid.to_s()
     else
       get 'node/' + nid.to_s() + '/roles'

@@ -88,7 +88,7 @@ module ImportActions
 
 
   def email_to_uid(email)
-    # Static cache
+    # 'Static' cache
     @uid_map = Hash.new unless defined? @uid_map
     if !@uid_map.has_key?(email)
       users = self.user_list({:mail => email})
@@ -100,28 +100,28 @@ module ImportActions
     end
     @uid_map[email]
   rescue
-    puts "Couldn't find user: " + email
     raise
   end
 
   def group_name_to_nid(name)
-    # Lookup group by name (and group owner if possible)
+    # Lookup group by name
+    # TODO - Extend to filter by group owner, too.  Reduce chance of mismatch.
     nodes = node_list({
         :type => 'group',
         :title => name,
       })
     if nodes.has_key?('item') && nodes['item'].length == 1
-      nid = nodes['item'].first['nid']
+      return nodes['item'].first['nid']
     else
       raise
     end
   end
 
-  def group_role_to_rid(role, nid)
+  def group_role_to_rid(role_name, nid)
     roles = self.group_roles_list(nid)
 
     roles['item'].each do | role |
-      if role['name'] == role && role.has_key?('rid')
+      if role['name'] == role_name && role.has_key?('rid')
         return role['rid']
       end
     end
@@ -280,6 +280,7 @@ module ImportActions
       if row.has_key?('parent_1_uid') || row.has_key?('parent_2_uid')
         # Request allplayers.net email
         # TODO - Avoid creating duplicate children.
+        # TODO - Consider how to send welcome email to parent.
         more_params['email_alternative'] = {:value => 1}
       else
         puts 'Row ' + @row_count.to_s + ': Missing parents for '+ description +' without email address.'
@@ -495,21 +496,22 @@ module ImportActions
         return
       end
     else
-      puts 'Row ' + @row_count.to_s + ': User ' + row['first_name'] + ' ' + row['last_name'] + " can't be added to group without group name."
+      puts 'Row ' + @row_count.to_s + ': User ' + row['email_address'] + " can't be added to group without group name."
       return
     end
 
     response = {}
-    # Join the group.
+    # Join user to group.
     response['join'] = self.user_join_group(uid, nid)
 
-    # Add to group role
+    # Add to user to group role
+    # TODO - Split group role assignment to separate function.
     if row.has_key?('group_role')
       # Get a rid to assign.
       begin
         rid = group_role_to_rid(row['group_role'], nid)
       rescue
-        puts 'Row ' + @row_count.to_s + ": Can't locate role " + row['group_role'] + ' in group ' + row['group_name']
+        puts 'Row ' + @row_count.to_s + ": Can't locate role " + row['group_role'] + ' in group NID ' + nid
       end
       response['role'] = self.user_group_role_add(uid, nid, rid) unless rid.nil?
     end
