@@ -77,8 +77,12 @@ module ImportActions
       uid = email_to_uid(email)
     rescue
       puts 'Error locating user: ' + email
-      retry
+      raise
     end
+  rescue
+    email = nil
+    retry
+  else
     if uid.nil?
       raise
     end
@@ -428,6 +432,7 @@ module ImportActions
     end
 
     # Set Custom type, if 'Other' type.
+    # TODO - Move this into apci_rest
     type = row['group_type'].split(':') unless row['group_type'].nil?
     if type
       if (type[1] && type[0].downcase == 'other')
