@@ -222,17 +222,19 @@ module ImportActions
       responses[prefix] = import_user(user, description) unless user.empty?
     }
 
-    # Update participant with responses.  We're done with parents.
-    row['participant_uid'] = responses['participant_']['uid'] if responses['participant_'].has_key?('uid')
-    row['participant_email_address'] = responses['participant_']['mail'] unless row.has_key?('participant_email_address')
+    if responses.has_key?('participant_') && !responses['participant_'].nil?
+      # Update participant with responses.  We're done with parents.
+      row['participant_uid'] = responses['participant_']['uid'] if responses['participant_'].has_key?('uid')
+      row['participant_email_address'] = responses['participant_']['mail'] if responses['participant_'].has_key?('mail')
 
-    # Group Assignment + Participant
-    # TODO - Create per session Group title - NID (email - UID too?) map to prefer nodes created.
-    ['group_1_', 'group_2_',  'group_3_'].each {|prefix|
-      group = row.key_filter(prefix, 'group_')
-      user = row.key_filter('participant_')
-      responses[prefix] = import_user_group_role(user.merge(group)) unless group.empty?
-    }
+      # Group Assignment + Participant
+      # TODO - Create per session Group title - NID (email - UID too?) map to prefer nodes created.
+      ['group_1_', 'group_2_',  'group_3_'].each {|prefix|
+        group = row.key_filter(prefix, 'group_')
+        user = row.key_filter('participant_')
+        responses[prefix] = import_user_group_role(user.merge(group)) unless group.empty?
+      }
+    end
     puts '---'
   end
 
@@ -274,9 +276,17 @@ module ImportActions
     birthdate = Date.parse(row['birthdate'])
 
     if birthdate.to_age < 21
-      # Verify parents and get UIDs
-      row['parent_1_uid'] = self.email_to_uid(row['parent_1_email_address']) if row.has_key?('parent_1_email_address')
-      row['parent_2_uid'] = self.email_to_uid(row['parent_2_email_address']) if row.has_key?('parent_2_email_address')
+      begin
+        # Verify parents and get UIDs
+        row['parent_1_uid'] = self.email_to_uid(row['parent_1_email_address']) if row.has_key?('parent_1_email_address')
+      rescue
+        puts 'Row ' + @row_count.to_s + ": Can't find account for Parent 1 : " + row['parent_1_email_address']
+      end
+      begin
+        row['parent_2_uid'] = self.email_to_uid(row['parent_2_email_address']) if row.has_key?('parent_2_email_address')
+      rescue
+        puts 'Row ' + @row_count.to_s + ": Can't find account for Parent 2 : " + row['parent_2_email_address']
+      end
     end
 
     # If 13 or under, verify parent, request allplayers.net email if needed.
