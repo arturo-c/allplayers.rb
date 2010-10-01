@@ -286,24 +286,22 @@ module ImportActions
         puts 'Row ' + @row_count.to_s + ': Missing parents for '+ description +' without email address.'
         return {}
       end
+    elsif
+      # Check if user already exists
+      uid = email_to_uid(row['email_address']) rescue false
+      if uid
+        puts 'Row ' + @row_count.to_s + ': ' + description +' already exists: ' + row['email_address'] + ' at UID: ' + uid + '. No associated fields will be imported.'
+        return {:mail => row['email_address'], :uid => uid }
+      end
     end
 
     # Check required fields
-    missing_fields = ['email_address', 'first_name', 'last_name', 'gender', 'birthdate'].reject {
+    missing_fields = ['first_name', 'last_name', 'gender', 'birthdate'].reject {
       |field| row.has_key?(field) && !row[field].nil? && !row[field].empty?
     }
-    # Ignore missing email if requesting allplayers.net email.
-    missing_fields.delete('email_address') if more_params.has_key?('email_alternative')
     if !missing_fields.empty?
       puts 'Row ' + @row_count.to_s + ': Missing required fields for '+ description +': ' + missing_fields.join(', ')
       return {}
-    end
-
-    # Check if user already exists
-    uid = email_to_uid(row['email_address']) rescue false
-    if uid
-      puts 'Row ' + @row_count.to_s + ': ' + description +' already exists: ' + row['email_address'] + ' at UID: ' + uid + '. No associated fields will be imported.'
-      return {:mail => row['email_address'], :uid => uid }
     end
 
     puts 'Row ' + @row_count.to_s + ': Importing ' + description +': ' + row['first_name'] + ' ' + row['last_name']
