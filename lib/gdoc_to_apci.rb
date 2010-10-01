@@ -37,7 +37,7 @@ def google_docs_import
 
   # Spreadsheet search menu
   puts "Listing Spreadsheets...\n"
-  #spreadsheets = g.list_spreadsheets
+#  spreadsheets = g.list_spreadsheets
   # APCIHACK - GPRATT - Spreadsheet listing doesn't work on allplayers.com domain.
   spreadsheets = {
     'entry' => [
@@ -59,6 +59,20 @@ def google_docs_import
         'title' => 'Benton County Youth Football Import',
         'content' => {
           'src' => 'https://spreadsheets.google.com/feeds/worksheets/0AqPrqPEA9f2YdC1HYzhCZkN5N00tcU9mZjNRN1RzTlE/private/full',
+          'type' => 'application/atom+xml;type=feed',
+        }
+      },
+      {
+        'title' => 'Full GA List',
+        'content' => {
+          'src' => 'https://spreadsheets.google.com/feeds/worksheets/0AnGXYylkIPWvdDY4cEthMGtsZ2YxOGxTNXU0b0NlVVE/private/full',
+          'type' => 'application/atom+xml;type=feed',
+        }
+      },
+      {
+        'title' => 'BGCA Southwest recovered list',
+        'content' => {
+          'src' => 'https://spreadsheets.google.com/feeds/worksheets/0AtryEYO1I48NdE9Mcy1DMUFzMExicXl2OGN1bXZlTmc/private/full',
           'type' => 'application/atom+xml;type=feed',
         }
       },
