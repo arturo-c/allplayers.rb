@@ -494,7 +494,12 @@ module ImportActions
     if row.has_key?('uid')
       uid = row['uid']
     elsif row.has_key?('email_address')
-      uid = email_to_uid(row['email_address'])
+      begin
+        uid = email_to_uid(row['email_address'])
+      rescue
+        puts 'Row ' + @row_count.to_s + ": User " + row['email_address'] + " doesn't exist to add to group " + row['group_name'] + "."
+        return
+      end
     else
       puts 'Row ' + @row_count.to_s + ": User can't be added to group without email address."
       return
@@ -526,7 +531,7 @@ module ImportActions
       begin
         rid = group_role_to_rid(row['group_role'], nid)
       rescue
-        puts 'Row ' + @row_count.to_s + ": Can't locate role " + row['group_role'] + ' in group NID ' + nid
+        puts 'Row ' + @row_count.to_s + ": Can't locate role " + row['group_role'] + ' in group ' + row['group_name']
       end
       response['role'] = self.user_group_role_add(uid, nid, rid) unless rid.nil?
     end
