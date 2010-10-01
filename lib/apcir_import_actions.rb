@@ -438,6 +438,8 @@ module ImportActions
       return {}
     end
 
+    puts 'Row ' + @row_count.to_s + ': Importing group: ' + row['group_name']
+
     response = self.group_create(
       row['group_name'], # Title
       row['group_description'], # Description field
@@ -457,7 +459,7 @@ module ImportActions
 
       # Assign Owner.
       owner_group = {}
-      owner_group['uid'] = @node_owner_uid
+      owner_group['uid'] = uid.to_s
       owner_group['group_nid'] = response['nid']
       owner_group['group_name'] = row['group_name']
       owner_group['group_role'] = 'Admin'
