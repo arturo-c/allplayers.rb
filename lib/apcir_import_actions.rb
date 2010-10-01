@@ -155,36 +155,46 @@ module ImportActions
   def import_sheet(sheet, name)
     @stats = {}
     start_time = Time.now
+
+    @row_count = 1
     # Pull the first row and chunk it, it's just extended field descriptions.
+    puts 'Row ' + @row_count.to_s + ": Skipping Descriptions"
     sheet.shift
+
     # Pull the second row and use it to define columns.
-    column_defs = sheet.shift.split_first("\n").gsub(/[^0-9a-z]/i, '_').downcase
-    @row_count = 2
+    @row_count += 1
+    puts 'Row ' + @row_count.to_s + ": Parsing column labels"
+    begin
+      column_defs = sheet.shift.split_first("\n").gsub(/[^0-9a-z]/i, '_').downcase
+    rescue
+      puts 'Row ' + @row_count.to_s + ": Error parsing column labels"
+      return
+    end
 
     # TODO - Detect sheet type / sanity check by searching column_defs
     if (name == 'Participant Information')
       # mixed sheet... FUN!
-      puts "Importing Users\n"
+      puts 'Row ' + @row_count.to_s + "Importing Users\n"
       sheet.each {|row| self.import_mixed_user(self.prepare_row(row, column_defs))}
     elsif (name == 'Users')
       #if (2 <= (column_defs & ['First Name', 'Last Name']).length)
-      puts "Importing Users\n"
+      puts 'Row ' + @row_count.to_s + "Importing Users\n"
       sheet.each {|row| self.import_user(self.prepare_row(row, column_defs))}
     elsif (name == 'Groups' || name == 'Group Information')
       #elsif (2 <= (column_defs & ['Group Name', 'Category']).length)
-      puts "Importing Groups\n"
+      puts 'Row ' + @row_count.to_s + "Importing Groups\n"
       return unless interactive_node_owner
       sheet.each {|row| self.import_group(self.prepare_row(row, column_defs))}
     elsif (name == 'Events')
       #elsif (2 <= (column_defs & ['Title', 'Groups Involved', 'Duration (in minutes)']).length)
-      puts "Importing Events\n"
+      puts 'Row ' + @row_count.to_s + "Importing Events\n"
       sheet.each {|row| self.import_event(self.prepare_row(row, column_defs))}
     elsif (name == 'Users in Groups')
       #elsif (2 <= (column_defs & ['Group Name', 'User email', 'Role (Admin, Coach, Player, etc)']).length)
-      puts "Importing Users in Groups\n"
+      puts 'Row ' + @row_count.to_s + "Importing Users in Groups\n"
       sheet.each {|row| self.import_user_group_role(self.prepare_row(row, column_defs))}
     else
-      puts "Don't know what to do with sheet " + name + "\n"
+      puts 'Row ' + @row_count.to_s + "Don't know what to do with sheet " + name + "\n"
       next # Go to the next sheet.
     end
     # Output stats
@@ -358,8 +368,8 @@ module ImportActions
   rescue ArgumentError => err
     puts 'Row ' + @row_count.to_s + ': Invalid Birth Date.  Failed to import ' + description
     puts err.to_yaml
-  #rescue
-  #  puts 'Row ' + @row_count.to_s + ': Unknown Error.  Failed to import ' + description
+    #rescue
+    #  puts 'Row ' + @row_count.to_s + ': Unknown Error.  Failed to import ' + description
   else
     if !response.nil?
       increment_stat('Users')
