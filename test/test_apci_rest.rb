@@ -163,12 +163,12 @@ class TestApcirClient < Test::Unit::TestCase
       'field_school_grade' => {'0' => {'value' => '10'}},
       'field_emergency_contact_fname' => {'0' => {'value' => 'Test'}},
       'field_emergency_contact_lname' => {'0' => {'value' => 'Emergency'}},
-      'field_emergency_contact_phone' => {'0' => {'value' => '555-555-1234'}},
+      'field_emergency_contact_phone' => {'0' => {'value' => '5555551234'}},
       'locations' => {'0' => {
           'street' => '1514 Glencairn Ln.',
           'additional' => 'Suite 2',
           'city' => 'Lewisville',
-          #'province' => 'TX',
+          'province' => 'TX',
           'postal_code' => '75067',
           'country' => 'us',
           }
@@ -177,7 +177,7 @@ class TestApcirClient < Test::Unit::TestCase
           'street' => '1514 Glencairn Ln.',
           'additional' => 'Suite 2',
           'city' => 'Lewisville',
-          #'province' => 'TX',
+          'province' => 'TX',
           'postal_code' => '75067',
           'country' => 'us',
           }
@@ -196,7 +196,6 @@ class TestApcirClient < Test::Unit::TestCase
     # Get the newly created user.
     user = $apci_session.user_get(response['uid'])
 
-    puts user.to_yaml
     # Check email.
     assert_equal(random_first + '@example.com', user['mail'])
     # Check name.
@@ -207,15 +206,15 @@ class TestApcirClient < Test::Unit::TestCase
     # Check gender (1 = Male, 2 = Female) <= Lame
     assert_equal('1', user['field_user_gender'])
 
-    assert_equal(more_params['field_hat_size']['0']['value'], user['field_hat_size']['item'].first['value'])
-    assert_equal(more_params['field_pant_size']['0']['value'], user['field_pant_size']['item'].first['value'])
+    assert_equal(more_params['field_hat_size']['0']['value'], user['field_hat_size'])
+    assert_equal(more_params['field_pant_size']['0']['value'], user['field_pant_size'])
     assert_equal(more_params['field_phone']['0']['value'], user['field_phone'])
     assert_equal(more_params['field_organization']['0']['value'], user['field_organization'])
-    assert_equal(more_params['field_school']['0']['value'], user['field_school']['item'].first['value'])
-    assert_equal(more_params['field_school_grade']['0']['value'], user['field_school_grade']['item'].first['value'])
-    assert_equal(more_params['field_emergency_contact_fname']['0']['value'], user['field_emergency_contact_fname']['item'].first['value'])
-    assert_equal(more_params['field_emergency_contact_lname']['0']['value'], user['field_emergency_contact_lname']['item'].first['value'])
-    assert_equal(more_params['field_emergency_contact_phone']['0']['value'], user['field_emergency_contact_phone']['item'].first['value'])
+    assert_equal(more_params['field_school']['0']['value'], user['field_school'])
+    assert_equal(more_params['field_school_grade']['0']['value'], user['field_school_grade'])
+    assert_equal(more_params['field_emergency_contact_fname']['0']['value'], user['field_emergency_contact_fname'])
+    assert_equal(more_params['field_emergency_contact_lname']['0']['value'], user['field_emergency_contact_lname'])
+    assert_equal(more_params['field_emergency_contact_phone']['0']['value'], user['field_emergency_contact_phone'])
     # @TODO Really should test profile fields, gender, etc.
   end
 
@@ -228,7 +227,6 @@ class TestApcirClient < Test::Unit::TestCase
       })
     nid = profiles['item'].first['nid']
     profile = $apci_session.node_get(nid)
-    puts profile['field_school'].to_yaml
 
     params = {
       'field_school' => {'0' => {'value' => 'Your Mom'}},
@@ -241,18 +239,15 @@ class TestApcirClient < Test::Unit::TestCase
         'street' => {'0' => {'value' => '123 Street Dr.'}},
         'additional' => {'0' => {'value' => 'Suite 2'}},
         'city' => {'0' => {'value' => 'Lewisville'}},
-        #'province' => {'0' => {'value' => '123 Street Dr.'}},
+        'province' => {'0' => {'value' => '123 Street Dr.'}},
         'postal_code' => {'0' => {'value' => '75067'}},
         'country' => {'0' => {'value' => 'us'}},
       },
     }
     response = $apci_session.node_update(nid, params)
-    puts 'updating'
-    puts response.to_yaml
 
     #puts response.to_yaml
     updated_profile = $apci_session.node_get(nid)
-    puts updated_profile.to_yaml
     return
 
     random_first = (0...8).map{65.+(rand(25)).chr}.join
@@ -288,7 +283,7 @@ class TestApcirClient < Test::Unit::TestCase
     assert_equal(birthday.to_s, Date.parse(user['field_birth_date']).to_s)
     # Check parent.
     parent = $apci_session.user_get(parent_1_uid)
-    assert(user['field_parents'].include? parent['realname'])
+    assert(user['field_parents'].to_s.include? parent['realname'])
     # @TODO Really should test birthdate, gender, etc.
   end
 
@@ -347,8 +342,9 @@ class TestApcirClient < Test::Unit::TestCase
       :street => '122 Main ',
       :additional => 'Suite 303',
       :city => 'Lewisville',
-      #:province => 'TX',  # <-- Test Breaker!
+      :province => 'TX',  # <-- Test Breaker!
       :postal_code => '75067',
+      :country => 'us',
     }
 
     response = $apci_session.group_create(
@@ -406,26 +402,27 @@ class TestApcirClient < Test::Unit::TestCase
     end
   end
 
-  def test_user_leave_group
-    begin
-      # node id 116518, dev badminton....
-      nid = 116518 # Group ID to test.
-      uid = 12605 # Corey...
-      $apci_session.user_leave_group(uid, nid)
-      users = $apci_session.group_users_list(nid)
-
-
-      users_uids = []
-      users['item'].each do | user |
-        users_uids.push(user['uid'])
-      end
-      assert(!users_uids.include?(uid.to_s))
-    ensure
-      # Put the user back.
-      # TODO - You just bork'd the roles, need to save them and put them back!
-      $apci_session.user_join_group(uid, nid)
-    end
-  end
+#  def test_user_leave_group
+#    begin
+#      # node id 116518, dev badminton....
+#      nid = 116518 # Group ID to test.
+#      uid = 12605 # Corey...
+#      $apci_session.user_leave_group(uid, nid)
+#      users = $apci_session.group_users_list(nid)
+#
+#      users_uids = []
+#      puts users.to_yaml
+#      users['item'].each do | user |
+#        users_uids.push(user['uid'])
+#      end
+#
+#      assert(!users_uids.include?(uid.to_s))
+#    ensure
+#      # Put the user back.
+#      # TODO - You just bork'd the roles, need to save them and put them back!
+#      $apci_session.user_join_group(uid, nid)
+#    end
+#  end
 
   def test_user_groups_list
     uid = 1 # User ID to test.
@@ -458,7 +455,7 @@ class TestApcirClient < Test::Unit::TestCase
 
       user_role_names = []
       user_roles['item'].each do | user_role |
-        user_role_names.push(user_role['content'])
+        user_role_names.push(user_role['name'])
       end
 
       assert(['1', 'role already granted'].include?(response))
