@@ -17,6 +17,12 @@
 #
 # HOST: The target server for testing REST services (e.g. demo.allplayers.com).
 #
+# OR use environment variables:
+#
+#  ENV['APCI_REST_TEST_HOST']
+#  ENV['APCI_REST_TEST_USER']
+#  ENV['APCI_REST_TEST_PASS']
+#
 
 # Change path to the lib directory.
 $:.unshift File.join(File.dirname(__FILE__),'..','lib')
@@ -31,6 +37,14 @@ require 'etc'
 class TestApcirClient < Test::Unit::TestCase
 
   def get_args
+    # If any environment variable set, skip argument handling.
+    if ENV.has_key?('APCI_REST_TEST_HOST')
+      $apci_rest_test_host = ENV['APCI_REST_TEST_HOST']
+      $apci_rest_test_user = ENV['APCI_REST_TEST_USER']
+      $apci_rest_test_pass = ENV['APCI_REST_TEST_PASS']
+      return
+    end
+
     $apci_rest_test_user = Etc.getlogin if $apci_rest_test_user.nil?
     $apci_rest_test_pass = nil if $apci_rest_test_pass.nil?
 
@@ -54,12 +68,12 @@ class TestApcirClient < Test::Unit::TestCase
     # (i.e. user@sandbox.allplayers.com).
     if ARGV.length != 1
       puts "No host argument, connecting to default host (try --help)"
-      $host = nil
+      $apci_rest_test_host = nil
     else
       host_user = ARGV.shift.split('@')
       $apci_rest_test_user = host_user.shift if host_user.length > 1
-      $host = host_user[0]
-      puts 'Connecting to ' + $host
+      $apci_rest_test_host = host_user[0]
+      puts 'Connecting to ' + $apci_rest_test_host
     end
 
   end
@@ -71,7 +85,7 @@ class TestApcirClient < Test::Unit::TestCase
       end
 
       if $apci_session.nil?
-        $apci_session = ApcirClient.new(nil, $host)
+        $apci_session = ApcirClient.new(nil, $apci_rest_test_host)
       end
 
       # End arguments
