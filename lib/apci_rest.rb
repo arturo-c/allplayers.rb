@@ -184,6 +184,7 @@ class ApcirClient
     more_params = {
       :notify => '1', # Send welcome email.
       :force_password_change => '1', # Force password change on first login.
+      :pass => (0...16).map{ (('a'..'z').to_a + ('A'..'Z').to_a + ('2'..'9').to_a)[rand(60)] }.join, # Random password, if needed.
     }.merge(more_params)
 
     #[POST] {endpoint}/user + DATA (form_state for user_register form
