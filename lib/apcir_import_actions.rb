@@ -174,27 +174,27 @@ module ImportActions
     # TODO - Detect sheet type / sanity check by searching column_defs
     if (name == 'Participant Information')
       # mixed sheet... FUN!
-      puts 'Row ' + @row_count.to_s + "Importing Users\n"
+      puts 'Row ' + @row_count.to_s + ": Importing Participants, Parents and Group assignments\n"
       sheet.each {|row| self.import_mixed_user(self.prepare_row(row, column_defs))}
     elsif (name == 'Users')
       #if (2 <= (column_defs & ['First Name', 'Last Name']).length)
-      puts 'Row ' + @row_count.to_s + "Importing Users\n"
+      puts 'Row ' + @row_count.to_s + ": Importing Users\n"
       sheet.each {|row| self.import_user(self.prepare_row(row, column_defs))}
     elsif (name == 'Groups' || name == 'Group Information')
       #elsif (2 <= (column_defs & ['Group Name', 'Category']).length)
-      puts 'Row ' + @row_count.to_s + "Importing Groups\n"
+      puts 'Row ' + @row_count.to_s + ": Importing Groups\n"
       return unless interactive_node_owner
       sheet.each {|row| self.import_group(self.prepare_row(row, column_defs))}
     elsif (name == 'Events')
       #elsif (2 <= (column_defs & ['Title', 'Groups Involved', 'Duration (in minutes)']).length)
-      puts 'Row ' + @row_count.to_s + "Importing Events\n"
+      puts 'Row ' + @row_count.to_s + ": Importing Events\n"
       sheet.each {|row| self.import_event(self.prepare_row(row, column_defs))}
     elsif (name == 'Users in Groups')
       #elsif (2 <= (column_defs & ['Group Name', 'User email', 'Role (Admin, Coach, Player, etc)']).length)
-      puts 'Row ' + @row_count.to_s + "Importing Users in Groups\n"
+      puts 'Row ' + @row_count.to_s + ": Importing Users in Groups\n"
       sheet.each {|row| self.import_user_group_role(self.prepare_row(row, column_defs))}
     else
-      puts 'Row ' + @row_count.to_s + "Don't know what to do with sheet " + name + "\n"
+      puts 'Row ' + @row_count.to_s + ": Don't know what to do with sheet " + name + "\n"
       next # Go to the next sheet.
     end
     # Output stats
