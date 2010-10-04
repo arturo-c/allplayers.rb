@@ -346,6 +346,7 @@ module ImportActions
     more_params['field_shoe_size'] = {:'0' => {:value => row['shoe_size']}} if row.has_key?('shoe_size')
     #    more_params['field_size'] = {:'0' => {:value => row['shirt_size']}} if row.has_key?('shirt_size')
     more_params['field_weight'] = {:'0' => {:value => row['weight']}} if row.has_key?('weight')
+    more_params['field_organization'] = {:'0' => {:value => row['organization']}} if row.has_key?('organization')
 
     location = {}
     location['street'] =  row['primary_address_1'] if row.has_key?('primary_address_1')
