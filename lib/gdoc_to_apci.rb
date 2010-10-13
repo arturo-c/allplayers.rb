@@ -63,9 +63,9 @@ def google_docs_import
         }
       },
       {
-        'title' => 'Full GA List',
+        'title' => 'YMCA-BIG GAME PROMO IMPORT (FINAL)',
         'content' => {
-          'src' => 'https://spreadsheets.google.com/feeds/worksheets/0AnGXYylkIPWvdDY4cEthMGtsZ2YxOGxTNXU0b0NlVVE/private/full',
+          'src' => 'https://spreadsheets.google.com/feeds/worksheets/0AjgSHHY0WHyydDR5OFpjQ1hNV2gzcnZta21TVE5zZEE/private/full',
           'type' => 'application/atom+xml;type=feed',
         }
       },
@@ -80,6 +80,13 @@ def google_docs_import
         'title' => 'Odessa Tackle Football 2010 Import',
         'content' => {
           'src' => 'https://spreadsheets.google.com/feeds/worksheets/0AjgSHHY0WHyydDgwcEwwVEtvRjNLY3FucGhBUVp6b2c/private/full',
+          'type' => 'application/atom+xml;type=feed',
+        }
+      },
+      {
+        'title' => 'Red Oak ISD Football',
+        'content' => {
+          'src' => 'https://spreadsheets.google.com/feeds/worksheets/0Ag2ekyd5CABldEE1OXJ5Zll0T3JiWkMta1FmWVNPRXc/private/full',
           'type' => 'application/atom+xml;type=feed',
         }
       },
