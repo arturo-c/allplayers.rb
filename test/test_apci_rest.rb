@@ -28,6 +28,7 @@
 $:.unshift File.join(File.dirname(__FILE__),'..','lib')
 
 require 'apci_rest'
+require 'apci_field_mapping'
 require 'test/unit'
 require 'getoptlong'
 require 'rdoc/usage'
@@ -157,6 +158,9 @@ class TestApcirClient < Test::Unit::TestCase
     more_params = {
       'field_hat_size' => {'0' => {'value' => 'Youth - S'}},
       'field_pant_size' => {'0' => {'value' => 'Youth - L'}},
+      'field_size' => {'0' => {'value' => apci_field_shirt_size('L')}},
+      'field_shoe_size' => {'0' => {'value' => apci_field_shoe_size('Adult - Male - 5.5')}},
+      'field_height' => {'0' => {'value' => apci_field_height("6' 3\"")}},
       'field_phone' => {'0' => {'value' => '5555554321'}},
       'field_organization' => {'0' => {'value' => 'Awesome Test Company'}},
       'field_school' => {'0' => {'value' => 'The REST School'}},
