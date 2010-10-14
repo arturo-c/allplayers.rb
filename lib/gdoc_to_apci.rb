@@ -24,6 +24,8 @@ require 'getoptlong'
 require 'rdoc/usage'
 require 'highline/import'
 require 'etc'
+require 'logger'
+require 'yaml'
 
 # Stop EOF errors in Highline
 HighLine.track_eof = false
@@ -70,6 +72,13 @@ def google_docs_import
         }
       },
       {
+        'title' => 'PAL - BIG GAME PROMO import',
+        'content' => {
+          'src' => 'https://spreadsheets.google.com/feeds/worksheets/0AjgSHHY0WHyydFl2aHdGd200elZQa0pTZW9zckRSMVE/private/full',
+          'type' => 'application/atom+xml;type=feed',
+        }
+      },
+      {
         'title' => 'BGCA Southwest recovered list',
         'content' => {
           'src' => 'https://spreadsheets.google.com/feeds/worksheets/0AtryEYO1I48NdE9Mcy1DMUFzMExicXl2OGN1bXZlTmc/private/full',
@@ -94,6 +103,13 @@ def google_docs_import
         'title' => 'Red Oak ISD Football',
         'content' => {
           'src' => 'https://spreadsheets.google.com/feeds/worksheets/0Ag2ekyd5CABldEE1OXJ5Zll0T3JiWkMta1FmWVNPRXc/private/full',
+          'type' => 'application/atom+xml;type=feed',
+        }
+      },
+      {
+        'title' => 'bgc pacific import',
+        'content' => {
+          'src' => 'https://spreadsheets.google.com/feeds/worksheets/0AjgSHHY0WHyydFJmdGZIZFpGdjJHbmdXa0ozREJWVHc/private/full',
           'type' => 'application/atom+xml;type=feed',
         }
       },
