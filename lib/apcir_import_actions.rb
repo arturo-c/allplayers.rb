@@ -5,6 +5,7 @@ require 'rubygems'
 require 'highline/import'
 require 'active_support'
 require 'apci_field_mapping'
+require 'active_support/core_ext/time/conversions.rb'
 
 # Stop EOF errors in Highline
 HighLine.track_eof = false

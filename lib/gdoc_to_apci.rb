@@ -26,6 +26,7 @@ require 'highline/import'
 require 'etc'
 require 'logger'
 require 'yaml'
+require 'active_support'
 
 # Stop EOF errors in Highline
 HighLine.track_eof = false
