@@ -432,9 +432,10 @@ module ImportActions
           :title => row['group_above'],
         })
       if nodes.has_key?('item') && nodes['item'].length == 1
-        more_params['field_group'] = {:nid => {:nid => nodes['item'].first['nid'].to_s}}
+        puts 'Row ' + @row_count.to_s + ': Found group above: ' + row['group_above'] + 'at NID ' + nodes['item'].first['nid'].to_s
+        more_params['field_group'] = {'0' => {'nid' => nodes['item'].first['nid'].to_s}}
       else
-        puts "Couldn't find group above: " + row['group_above']
+        puts 'Row ' + @row_count.to_s + "Couldn't find group above: " + row['group_above']
         return
       end
     end
