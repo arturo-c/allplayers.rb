@@ -112,7 +112,8 @@ class ApcirClient
     # APCIHACK - Fix non-required fields...
     more_params.merge!({
         :field_status => {:value => 'Active'},
-        :field_group_mates => {:value => 'Group Mates'}
+        :field_group_mates => {:value => 'Group Mates'},
+        :field_accept_amex => {:value => 'Accept'},
     })
 
     node_create title, 'group', nil, required_params.merge(more_params)
