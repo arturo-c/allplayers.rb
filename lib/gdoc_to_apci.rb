@@ -77,6 +77,13 @@ def google_docs_import
         }
       },
       {
+        'title' => 'BGCA Southest IMPORT',
+        'content' => {
+          'src' => 'https://spreadsheets.google.com/feeds/worksheets/0AjgSHHY0WHyydGl3amtmYThNVDRqdjk0bVRBS2VWTmc/private/full',
+          'type' => 'application/atom+xml;type=feed',
+        }
+      },
+      {
         'title' => 'Odessa Tackle Football 2010 Import',
         'content' => {
           'src' => 'https://spreadsheets.google.com/feeds/worksheets/0AjgSHHY0WHyydDgwcEwwVEtvRjNLY3FucGhBUVp6b2c/private/full',
