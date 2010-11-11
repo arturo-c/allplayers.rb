@@ -338,7 +338,7 @@ module ImportActions
       # Check if user already exists
       uid = email_to_uid(row['email_address']) rescue false
       if uid
-        puts 'Row ' + @row_count.to_s + ': ' + description +' already exists: ' + row['email_address'] + ' at UID: ' + uid + '. No associated fields will be imported.'
+        puts 'Row ' + @row_count.to_s + ': ' + description +' already exists: ' + row['email_address'] + ' at UID: ' + uid + '. No profile fields will be imported.  Participant will still be added to groups.'
         return {:mail => row['email_address'], :uid => uid }
       end
     end
