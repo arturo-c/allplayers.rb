@@ -228,10 +228,32 @@ module ImportActions
       # Update participant with responses.  We're done with parents.
       row['participant_uid'] = responses['participant_']['uid'] if responses['participant_'].has_key?('uid')
       row['participant_email_address'] = responses['participant_']['mail'] if responses['participant_'].has_key?('mail')
+      
+      # Find the max number of groups being imported
+      group_list = row.reject {|key, value| key.match('group_').nil?}
+      number_of_groups = 0
+      key_int_value = 0
+      group_list.each {|key, value|
+        key_parts = key.split('_')        
+        key_parts.each {|part|
+          key_int_value = part.to_i
+          if (key_int_value > number_of_groups)
+            number_of_groups = key_int_value
+          end
+        }
+      }
+      puts 'Row ' + @row_count.to_s + ': Max number of groups: ' + number_of_groups.to_s
+      
+      # Create the list of group names to iterate through
+      group_names = []
+      for i in 1..number_of_groups
+        group_names.push('group_' + i.to_s + '_')
+      end
 
       # Group Assignment + Participant
       # TODO - Create per session Group title - NID (email - UID too?) map to prefer nodes created.
-      ['group_1_', 'group_2_',  'group_3_'].each {|prefix|
+      #['group_1_', 'group_2_', 'group_3_'].each {|prefix|
+      group_names.each {|prefix|
         group = row.key_filter(prefix, 'group_')
         user = row.key_filter('participant_')
         responses[prefix] = import_user_group_role(user.merge(group)) unless group.empty?
