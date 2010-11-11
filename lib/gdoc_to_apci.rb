@@ -52,6 +52,13 @@ def google_docs_import
         }
       },
       {
+        'title' => 'Matts Import Template',
+        'content' => {
+          'src' => 'https://spreadsheets.google.com/feeds/worksheets/0Ahq9WekqwsExdDU0MmluaUJWZkRaZXJqQWx0Ny1VSnc/private/full',
+          'type' => 'application/atom+xml;type=feed',
+        }
+      },
+      {
         'title' => 'Apache optimist Football Import',
         'content' => {
           'src' => 'https://spreadsheets.google.com/feeds/worksheets/0Ai7w3-2CeY-ddG8wLWtuWmJoeTQwM0dNRXppRTdfbHc/private/full',
@@ -114,6 +121,27 @@ def google_docs_import
           'type' => 'application/atom+xml;type=feed',
         }
       },
+      {
+        'title' => 'Waxahachie Volleyball Coaches',
+        'content' => {
+          'src' => 'https://spreadsheets.google.com/feeds/worksheets/0Agjj5uTMDbUxdE1XTGlTOFBkNzRtakpLcEdRLTFCMmc/private/full',
+          'type' => 'application/atom+xml;type=feed',
+        }
+      },
+      {
+        'title' => 'Waxahachie Flag Football Coaches Import',
+        'content' => {
+          'src' => 'https://spreadsheets.google.com/feeds/worksheets/0Agjj5uTMDbUxdE9qb0Y4cjVnUkNhZmt4dlhkU2JtZVE/private/full',
+          'type' => 'application/atom+xml;type=feed',
+        }
+      },
+      {
+        'title' => 'Waxahachie Football Parents and Players',
+        'content' => {
+          'src' => 'https://spreadsheets.google.com/feeds/worksheets/0AjgSHHY0WHyydDJseUJGYjFjckh1Vld2UzI1UlRlRlE/private/full',
+          'type' => 'application/atom+xml;type=feed',
+        }
+      }
     ]
   }
 
