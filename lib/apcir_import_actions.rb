@@ -578,13 +578,20 @@ module ImportActions
     # Add to user to group role
     # TODO - Split group role assignment to separate function.
     if row.has_key?('group_role')
-      # Get a rid to assign.
-      begin
-        rid = group_role_to_rid(row['group_role'], nid)
-      rescue
-        puts 'Row ' + @row_count.to_s + ": Can't locate role " + row['group_role'] + ' in group ' + row['group_name']
-      end
-      response['role'] = self.user_group_role_add(uid, nid, rid) unless rid.nil?
+      # Break up any comma separated list of roles into individual roles
+      group_roles_array = []
+      group_roles_array = group_roles_array + row['group_role'].split(',')
+      group_roles_array.each {|element|
+        group_role = element.strip
+
+        # Get a rid to assign.
+        begin
+          rid = group_role_to_rid(group_role, nid)
+        rescue
+          puts 'Row ' + @row_count.to_s + ": Can't locate role " + group_role + ' in group ' + row['group_name']
+        end
+        response['role'] = self.user_group_role_add(uid, nid, rid) unless rid.nil?
+      }
     end
 
     #log stuff!!
