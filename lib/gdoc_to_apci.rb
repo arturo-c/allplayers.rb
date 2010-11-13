@@ -141,6 +141,34 @@ def google_docs_import
           'src' => 'https://spreadsheets.google.com/feeds/worksheets/0AjgSHHY0WHyydDJseUJGYjFjckh1Vld2UzI1UlRlRlE/private/full',
           'type' => 'application/atom+xml;type=feed',
         }
+      },
+      {
+        'title' => 'Waxahachie Volleyball Parents and Players',
+        'content' => {
+          'src' => 'https://spreadsheets.google.com/feeds/worksheets/0AjgSHHY0WHyydHVkbzFJakpjdktVcHdGXzEwZjAtd1E/private/full',
+          'type' => 'application/atom+xml;type=feed',
+        }
+      },
+      {
+        'title' => 'Frisco Y Coaches Import',
+        'content' => {
+          'src' => 'https://spreadsheets.google.com/feeds/worksheets/0AjgSHHY0WHyydDlqSzMzSkFHalpHV3hhaUQzWjk3TUE/private/full',
+          'type' => 'application/atom+xml;type=feed',
+        }
+      },
+      {
+        'title' => 'Rockwall Y Coaches Import',
+        'content' => {
+          'src' => 'https://spreadsheets.google.com/feeds/worksheets/0AoDhKnZl3R6pdGxjaWRlYUZhQW5mMVpwOV9ZZk0zZXc/private/full',
+          'type' => 'application/atom+xml;type=feed',
+        }
+      },
+      {
+        'title' => 'Rockwall Y Players/Parents Import 2',
+        'content' => {
+          'src' => 'https://spreadsheets.google.com/feeds/worksheets/0AoDhKnZl3R6pdEFRN3AtakxwNnhkMm9fbFo3ODlUeHc/private/full',
+          'type' => 'application/atom+xml;type=feed',
+        }
       }
     ]
   }
