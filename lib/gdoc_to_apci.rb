@@ -213,7 +213,8 @@ def google_docs_import
     break if cmd == ":quit"
 
     # Worksheet import menu.
-    say("Fetching \"#{cmd}\"...")
+    @apci_session.logger.info('Google Data') {"Fetching \"#{cmd}\"..."}
+    @apci_session.logger.debug('Google Data') {'Spreadsheet source: ' + choices[cmd]['content']['src']}
     worksheets = g.get_content(choices[cmd]['content']['src'])
 
     # Get spreadsheet key. TODO - This looks fragile.
@@ -242,12 +243,14 @@ def google_docs_import
       when ':all'
         say('Importing all sheets.')
         w_choices.each do | worksheet |
+          @apci_session.logger.debug('Google Data') {'Worksheet key: ' + worksheet['key']}
           sheet = g.get_from_csv(worksheet['key'], worksheet['order'])
           @apci_session.import_sheet(sheet, worksheet['title'])
         end
         break
       else
         say("Importing \"#{cmd}\"...")
+        @apci_session.logger.debug('Google Data') {'Worksheet key: ' + w_choices[cmd]['key']}
         sheet = g.get_from_csv(w_choices[cmd]['key'], w_choices[cmd]['order'])
         @apci_session.import_sheet(sheet, cmd)
       end
@@ -300,23 +303,29 @@ end
 # End arguments
 
 # Setup Logging.
-path = Dir.pwd + '/apci_import_logs'
+path = Dir.pwd + '/import_logs'
 begin
   FileUtils.mkdir(path)
 rescue
   # Do nothing, it's already there?  Perhaps you should catch a more specific
   # message.
 ensure
-  logger = Logger.new(path + '/import_apci.' + Time.now.to_i.to_s + '.log')
-  logger.level = Logger::DEBUG
-  logger.info('initialize') { "Initializing..." }
+  log_suffix = Time.now.strftime("%Y-%m-%d_%H_%M_%S")
+  #
+  rest_logger = Logger.new(path + '/rest_' + log_suffix + '.log')
+  rest_logger.formatter = Logger::Formatter.new
+  rest_logger.level = Logger::DEBUG
+  logger = Logger.new(path + '/import_' + log_suffix + '.log')
+  logger.formatter = ApciFormatter.new
+  logger.level = logger_level.nil? ? Logger::INFO : logger_level
 end
 
 # End Logging.
-@apci_session.log(logger)
+@apci_session.log(rest_logger)
 
 # Extend our API class with import and interactive actions.
 @apci_session.extend ImportActions
+@apci_session.logger = logger
 @apci_session.interactive_login(user,pass)
 
 google_docs_import
@@ -329,5 +338,7 @@ choose do |menu|
 end
 =end
 
+logger.info('import') { "Logout from APCI Server" }
 @apci_session.logout
+rest_logger.close
 logger.close

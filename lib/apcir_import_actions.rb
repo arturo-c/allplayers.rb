@@ -6,12 +6,25 @@ require 'highline/import'
 require 'active_support'
 require 'apci_field_mapping'
 require 'active_support/core_ext/time/conversions.rb'
+require 'thread'
+require 'logger'
 
 # Stop EOF errors in Highline
 HighLine.track_eof = false
 
+class DuplicateUserExists < StandardError
+end
+
 # Add some tools to Array to make parsing spreadsheet rows easier.
 class Array
+  def stripe_to_key_value(pieces=2)
+    stripes = []
+    self.each_index do |i|
+      stripes[i%pieces] = [] if stripes[i%pieces].nil?
+      stripes[i%pieces].push([i+1, self[i]])
+    end
+    stripes
+  end
   # Little utility to convert array to Hash with defined keys.
   def to_hash(other)
     Hash[ *(0...other.size()).inject([]) { |arr, ix| arr.push(other[ix], self[ix]) } ]
@@ -57,8 +70,46 @@ class Date
   end
 end
 
+# valid_email_address port from Drupal
+class String
+  def valid_email_address?
+    return !self.match(/^[a-zA-Z0-9_\-\.\+\^!#\$%&*+\/\=\?\`\|\{\}~\']+@((?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.?)+|(\[([0-9]{1,3}(\.[0-9]{1,3}){3}|[0-9a-fA-F]{1,4}(\:[0-9a-fA-F]{1,4}){7})\]))$/).nil?
+  end
+end
+
+# Build a Logger::Formatter subclass.
+class ApciFormatter < Logger::Formatter
+  def initialize
+    @highline = HighLine.new
+    #@hl.color_scheme = HighLine::SampleColorScheme.new
+    super
+  end
+  # Provide a call() method that returns the formatted message.
+  def call(severity, time, program_name, message)
+    message_color =  severity == 'ERROR' ? @highline.color(message, :red, :bold) : message
+    message_color =  severity == 'WARN' ? @highline.color(message, :bold) : message_color
+    if program_name == program_name.to_i.to_s
+      # Abuse program_name as row #
+      if program_name.to_i.even?
+        say @highline.color('Row ' + program_name + ': ', :cyan, :bold) + message_color
+      else
+        say @highline.color('Row ' + program_name + ': ', :magenta, :bold) + message_color
+      end
+    else
+      say message_color
+    end
+    super
+  end
+end
+
 # Functions to aid importing any type of spreadsheet to Allplayers.com.
 module ImportActions
+  MUTEX = Mutex.new
+
+  # Static UID to email
+  @@uid_map = {}
+  # Statistics about operations performed
+  @@stats = {}
 
   def interactive_login(user = nil, pass = nil)
     if @session_cookies.empty?
@@ -66,7 +117,7 @@ module ImportActions
       pass = ask("Enter your Allplayers.com password:  ") { |q| q.echo = false } if pass.nil?
       self.login( user, pass )
     else
-      puts 'Already logged in?'
+      say 'Already logged in?'
     end
   rescue RestClient::Exception => e
     pass = nil
@@ -78,7 +129,7 @@ module ImportActions
     begin
       uid = email_to_uid(email)
     rescue
-      puts 'Error locating user: ' + email
+      say 'Error locating user: ' + email
       raise
     end
   rescue
@@ -135,14 +186,13 @@ module ImportActions
     raise
   end
 
-  def prepare_row(row_array, column_defs)
-    @row_count = 1 unless @row_count
-    @row_count+=1
-    if @row_count < $skip_rows
-      return {}
+  def prepare_row(row_array, column_defs, row_count = nil)
+    if row_count
+      set_row_count(row_count)
+    else
+      increment_row_count
     end
-
-    puts 'Row ' + @row_count.to_s + ': Processing'
+    @logger.info(get_row_count.to_s) {'Processing...'}
     row = row_array.to_hash(column_defs)
     # Convert everything to a string and strip whitespace.
     row.each { |key,value| row.store(key,value.to_s.strip)}
@@ -150,72 +200,109 @@ module ImportActions
     row.delete_if { |key,value| value.empty? }
   end
 
+  def get_row_count
+    Thread.current['row_count'] = 0 if Thread.current['row_count'].nil?
+    Thread.current['row_count']
+  end
+
+  def increment_row_count
+    set_row_count(get_row_count + 1)
+  end
+
+  def set_row_count(count)
+    Thread.current['row_count'] = count
+  end
+
   def increment_stat(type)
-    if @stats.has_key?(type)
-      @stats[type]+=1
-    else
-      @stats[type] = 1
+    MUTEX.synchronize do
+      if @@stats.has_key?(type)
+        @@stats[type]+=1
+      else
+        @@stats[type] = 1
+      end
     end
   end
 
   def import_sheet(sheet, name)
-    @stats = {}
-    start_time = Time.now
 
-    @row_count = 1
+    start_time = Time.now
+    @logger.debug('import') {'Started ' + start_time.to_s}
+
+
+    increment_row_count
     # Pull the first row and chunk it, it's just extended field descriptions.
-    puts 'Row ' + @row_count.to_s + ": Skipping Descriptions"
+    @logger.info(get_row_count.to_s) {"Skipping Descriptions"}
     sheet.shift
 
     # Pull the second row and use it to define columns.
-    @row_count += 1
-    puts 'Row ' + @row_count.to_s + ": Parsing column labels"
+    increment_row_count
+    @logger.info(get_row_count.to_s) {"Parsing column labels"}
     begin
       column_defs = sheet.shift.split_first("\n").gsub(/[^0-9a-z]/i, '_').downcase
     rescue
-      puts 'Row ' + @row_count.to_s + ": Error parsing column labels"
+      @logger.info(get_row_count.to_s) {"Error parsing column labels"}
       return
     end
+
+    if $skip_rows
+      @logger.info(get_row_count.to_s) {'Skipping ' + $skip_rows.to_s + ' rows'}
+      while get_row_count < $skip_rows do
+        sheet.shift
+        increment_row_count
+      end
+    end
+
+    skipped_rows = get_row_count
+    @logger.debug(get_row_count.to_s) {'Skipped ' + skipped_rows.to_s + ' rows'}
 
     # TODO - Detect sheet type / sanity check by searching column_defs
     if (name == 'Participant Information')
       # mixed sheet... FUN!
-      puts 'Row ' + @row_count.to_s + ": Importing Participants, Parents and Group assignments\n"
-      sheet.each {|row| self.import_mixed_user(self.prepare_row(row, column_defs))}
+      @logger.info(get_row_count.to_s) {"Importing Participants, Parents and Group assignments\n"}
+      # Multi-thread
+      threads = []
+      thread_count = 15
+      stripes = sheet.stripe_to_key_value(thread_count)
+      for i in 0..(stripes.length-1) do
+        threads << Thread.new {
+          stripes[i].each {|row| self.import_mixed_user(self.prepare_row(row[1], column_defs, row[0] + skipped_rows))}
+        }
+      end
+      threads.each {|thread| thread.join}
     elsif (name == 'Bad Participant Information')
-      # mixed sheet... FUN!
-      puts 'Row ' + @row_count.to_s + ": Importing Participants, Parents and Group assignments\n"
+      # remove mixed sheet participants from groups
+      @logger.info(get_row_count.to_s) {"Importing Participants, Parents and Group assignments\n"}
       sheet.each {|row| self.import_bad_mixed_user(self.prepare_row(row, column_defs))}
     elsif (name == 'Users')
       #if (2 <= (column_defs & ['First Name', 'Last Name']).length)
-      puts 'Row ' + @row_count.to_s + ": Importing Users\n"
+      @logger.info(get_row_count.to_s) {"Importing Users\n"}
       sheet.each {|row| self.import_user(self.prepare_row(row, column_defs))}
     elsif (name == 'Groups' || name == 'Group Information')
       #elsif (2 <= (column_defs & ['Group Name', 'Category']).length)
-      puts 'Row ' + @row_count.to_s + ": Importing Groups\n"
+      @logger.info(get_row_count.to_s) {"Importing Groups\n"}
       return unless interactive_node_owner
       sheet.each {|row| self.import_group(self.prepare_row(row, column_defs))}
     elsif (name == 'Events')
       #elsif (2 <= (column_defs & ['Title', 'Groups Involved', 'Duration (in minutes)']).length)
-      puts 'Row ' + @row_count.to_s + ": Importing Events\n"
+      @logger.info(get_row_count.to_s) {"Importing Events\n"}
       sheet.each {|row| self.import_event(self.prepare_row(row, column_defs))}
     elsif (name == 'Users in Groups')
       #elsif (2 <= (column_defs & ['Group Name', 'User email', 'Role (Admin, Coach, Player, etc)']).length)
-      puts 'Row ' + @row_count.to_s + ": Importing Users in Groups\n"
+      @logger.info(get_row_count.to_s) {"Importing Users in Groups\n"}
       sheet.each {|row| self.import_user_group_role(self.prepare_row(row, column_defs))}
     else
-      puts 'Row ' + @row_count.to_s + ": Don't know what to do with sheet " + name + "\n"
+      @logger.info(get_row_count.to_s) {"Don't know what to do with sheet " + name + "\n"}
       next # Go to the next sheet.
     end
     # Output stats
     seconds = (Time.now - start_time).to_i
+    @logger.debug('import') {' stopped ' + Time.now.to_s}
     stats_array = []
-    @stats.each { |key,value| stats_array.push(key.to_s + ': ' + value.to_s) unless value.nil? or value == 0}
+    @@stats.each { |key,value| stats_array.push(key.to_s + ': ' + value.to_s) unless value.nil? or value == 0}
     puts
-    puts @row_count.to_s + ' rows processed.'
     puts
-    puts 'Imported ' + stats_array.sort.join(', ')
-    puts ' in ' + (seconds / 60).to_s + ' minutes ' + (seconds % 60).to_s + ' seconds.'
+    @logger.info('import') {'Imported ' + stats_array.sort.join(', ')}
+    @logger.info('import') {' in ' + (seconds / 60).to_s + ' minutes ' + (seconds % 60).to_s + ' seconds.'}
     puts
     # End stats
   end
@@ -250,7 +337,6 @@ module ImportActions
           end
         }
       }
-      puts 'Row ' + @row_count.to_s + ': Max number of groups: ' + number_of_groups.to_s
 
       # Create the list of group names to iterate through
       group_names = []
@@ -260,115 +346,67 @@ module ImportActions
 
       # Group Assignment + Participant
       # TODO - Create per session Group title - NID (email - UID too?) map to prefer nodes created.
-      #['group_1_', 'group_2_', 'group_3_'].each {|prefix|
       group_names.each {|prefix|
         group = row.key_filter(prefix, 'group_')
         user = row.key_filter('participant_')
         responses[prefix] = import_user_group_role(user.merge(group)) unless group.empty?
       }
     end
-    puts '---'
   end
 
   def import_bad_mixed_user(row)
-    # Import Users (Make sure parents come first).
+    # Remove participant from groups.
     responses = {}
-#    ['parent_1_', 'parent_2_',  'participant_'].each {|prefix|
-#      user = row.key_filter(prefix)
-#      # Add in Parent email addresses if this is the participant.
-#      user.merge!(row.reject {|key, value|  !key.include?('email_address')}) if prefix == 'participant_'
-#      description = prefix.split('_').join(' ').strip.capitalize
-#
-#      responses[prefix] = import_user(user, description) unless user.empty?
-#    }
-
-#    if responses.has_key?('participant_') && !responses['participant_'].nil?
-#      # Update participant with responses.  We're done with parents.
-#      row['participant_uid'] = responses['participant_']['uid'] if responses['participant_'].has_key?('uid')
-#      row['participant_email_address'] = responses['participant_']['mail'] if responses['participant_'].has_key?('mail')
-
-      # Find the max number of groups being imported
-      group_list = row.reject {|key, value| key.match('group_').nil?}
-      number_of_groups = 0
-      key_int_value = 0
-      group_list.each {|key, value|
-        key_parts = key.split('_')
-        key_parts.each {|part|
-          key_int_value = part.to_i
-          if (key_int_value > number_of_groups)
-            number_of_groups = key_int_value
-          end
-        }
+    # Find the max number of groups being imported
+    group_list = row.reject {|key, value| key.match('group_').nil?}
+    number_of_groups = 0
+    key_int_value = 0
+    group_list.each {|key, value|
+      key_parts = key.split('_')
+      key_parts.each {|part|
+        key_int_value = part.to_i
+        if (key_int_value > number_of_groups)
+          number_of_groups = key_int_value
+        end
       }
-      puts 'Row ' + @row_count.to_s + ': Max number of groups: ' + number_of_groups.to_s
+    }
 
-      # Create the list of group names to iterate through
-      group_names = []
-      for i in 1..number_of_groups
-        group_names.push('group_' + i.to_s + '_')
-      end
+    # Create the list of group names to iterate through
+    group_names = []
+    for i in 1..number_of_groups
+      group_names.push('group_' + i.to_s + '_')
+    end
 
-      # Group Assignment + Participant
-      # TODO - Create per session Group title - NID (email - UID too?) map to prefer nodes created.
-      #['group_1_', 'group_2_', 'group_3_'].each {|prefix|
-      group_names.each {|prefix|
-        group = row.key_filter(prefix, 'group_')
-        user = row.key_filter('participant_')
-#        responses[prefix] = import_user_group_role(user.merge(group)) unless group.empty?
-        responses[prefix] = remove_user_group_role(user.merge(group)) unless group.empty?
-      }
-#    end
-    puts '---'
+    # Group Removal
+    group_names.each {|prefix|
+      group = row.key_filter(prefix, 'group_')
+      user = row.key_filter('participant_')
+      responses[prefix] = remove_user_group_role(user.merge(group)) unless group.empty?
+    }
   end
 
-=begin
-# implies Implemented
-#- birthdate
-- cell_phone
-- cell_phone_carrier
-#- email_address
-#- emergency_contact_address_1
-#- emergency_contact_address_2
-#- emergency_contact_city
-#- emergency_contact_first_name
-#- emergency_contact_last_name
-#- emergency_contact_number
-#- emergency_contact_state
-#- emergency_contact_zip
-#- first_name
-#- gender
-#- grade
-#- hat_size
-#- height
-- home_phone
-#- last_name
-#- pant_size
-#- primary_address_1
-#- primary_address_2
-#- primary_city
-#- primary_state
-#- primary_zip
-#- school
-#- shirt_size
-#- shoe_size
-#- weight
-=end
   def import_user(row, description = 'User')
     more_params = {}
 
-    birthdate = Date.parse(row['birthdate'])
+    begin
+      birthdate = Date.parse(row['birthdate'])
+    rescue ArgumentError => err
+      @logger.error(get_row_count.to_s) {'Invalid Birth Date.  Failed to import ' + description}
+      puts err.to_yaml
+      return {}
+    end
 
     if birthdate.to_age < 21
       begin
         # Verify parents and get UIDs
         row['parent_1_uid'] = self.email_to_uid(row['parent_1_email_address']) if row.has_key?('parent_1_email_address')
       rescue
-        puts 'Row ' + @row_count.to_s + ": Can't find account for Parent 1 : " + row['parent_1_email_address']
+        @logger.warn(get_row_count.to_s) {"Can't find account for Parent 1 : " + row['parent_1_email_address']}
       end
       begin
         row['parent_2_uid'] = self.email_to_uid(row['parent_2_email_address']) if row.has_key?('parent_2_email_address')
       rescue
-        puts 'Row ' + @row_count.to_s + ": Can't find account for Parent 2 : " + row['parent_2_email_address']
+        @logger.warn(get_row_count.to_s) {"Can't find account for Parent 2 : " + row['parent_2_email_address']}
       end
     end
 
@@ -376,7 +414,7 @@ module ImportActions
     if birthdate.to_age < 14
       # If 13 or under, no email  & has parent, request allplayers.net email.
       if !(row.has_key?('parent_1_uid') || row.has_key?('parent_2_uid'))
-        puts 'Row ' + @row_count.to_s + ': Missing parents for '+ description +' age 13 or less.'
+        @logger.error(get_row_count.to_s) {'Missing parents for '+ description +' age 13 or less.'}
         return {}
       end
     end
@@ -390,14 +428,14 @@ module ImportActions
         # TODO - Consider how to send welcome email to parent.
         more_params['email_alternative'] = {:value => 1}
       else
-        puts 'Row ' + @row_count.to_s + ': Missing parents for '+ description +' without email address.'
+        puts 'Row ' + get_row_count.to_s + ': Missing parents for '+ description +' without email address.'
         return {}
       end
     elsif
       # Check if user already exists
       uid = email_to_uid(row['email_address']) rescue false
       if uid
-        puts 'Row ' + @row_count.to_s + ': ' + description +' already exists: ' + row['email_address'] + ' at UID: ' + uid + '. No profile fields will be imported.  Participant will still be added to groups.'
+        puts 'Row ' + get_row_count.to_s + ': ' + description +' already exists: ' + row['email_address'] + ' at UID: ' + uid + '. No profile fields will be imported.  Participant will still be added to groups.'
         return {:mail => row['email_address'], :uid => uid }
       end
     end
@@ -407,11 +445,11 @@ module ImportActions
       |field| row.has_key?(field) && !row[field].nil? && !row[field].empty?
     }
     if !missing_fields.empty?
-      puts 'Row ' + @row_count.to_s + ': Missing required fields for '+ description +': ' + missing_fields.join(', ')
+      @logger.error(get_row_count.to_s) {'Missing required fields for '+ description +': ' + missing_fields.join(', ')}
       return {}
     end
 
-    puts 'Row ' + @row_count.to_s + ': Importing ' + description +': ' + row['first_name'] + ' ' + row['last_name']
+    @logger.info(get_row_count.to_s) {'Importing ' + description +': ' + row['first_name'] + ' ' + row['last_name']}
 
     # TODO - Parse height into feet decimal value (precision 2?).
     # TODO - Shoe size might be a disaster - string to integer...
@@ -458,12 +496,9 @@ module ImportActions
       more_params
     )
   rescue RestClient::Exception => e
-    puts 'Row ' + @row_count.to_s + ': Failed to import ' + description
-  rescue ArgumentError => err
-    puts 'Row ' + @row_count.to_s + ': Invalid Birth Date.  Failed to import ' + description
-    puts err.to_yaml
-    #rescue
-    #  puts 'Row ' + @row_count.to_s + ': Unknown Error.  Failed to import ' + description
+    @logger.error(get_row_count.to_s) {'Failed to import ' + description}
+  #rescue
+  #  @logger.info(get_row_count.to_s) {'Unknown Error.  Failed to import ' + description}
   else
     if !response.nil?
       increment_stat('Users')
@@ -511,13 +546,13 @@ module ImportActions
       # Lookup group by name (and group owner if possible)
       nodes = node_list({
           :type => 'group',
-          :title => row['group_above'],
+          'title' => row['group_above'],
         })
       if nodes.has_key?('item') && nodes['item'].length == 1
-        puts 'Row ' + @row_count.to_s + ': Found group above: ' + row['group_above'] + 'at NID ' + nodes['item'].first['nid'].to_s
+        @logger.info(get_row_count.to_s) {'Found group above: ' + row['group_above'] + 'at NID ' + nodes['item'].first['nid'].to_s}
         more_params['field_group'] = {'0' => {'nid' => nodes['item'].first['nid'].to_s}}
       else
-        puts 'Row ' + @row_count.to_s + "Couldn't find group above: " + row['group_above']
+        puts 'Row ' + get_row_count.to_s + "Couldn't find group above: " + row['group_above']
         return
       end
     end
@@ -544,11 +579,11 @@ module ImportActions
         more_params.merge!({:spaces_preset_other => type[1]})
       end
     else
-      puts 'Group Type required for group import.'
+      @logger.error(get_row_count.to_s) {'Group Type required for group import.'}
       return {}
     end
 
-    puts 'Row ' + @row_count.to_s + ': Importing group: ' + row['group_name']
+    @logger.info(get_row_count.to_s) {'Importing group: ' + row['group_name']}
 
     response = self.group_create(
       row['group_name'], # Title
@@ -559,7 +594,8 @@ module ImportActions
       more_params
     )
   rescue RestClient::Exception => e
-    puts 'Row ' + @row_count.to_s + ': Failed to import group'
+    @logger.error(get_row_count.to_s) {'Failed to import group'}
+    @logger.debug(get_row_count.to_s) {e.backtrace}
   else
     #log stuff!!
     if (response && response.has_key?('nid'))
@@ -607,11 +643,11 @@ module ImportActions
       begin
         uid = email_to_uid(row['email_address'])
       rescue
-        puts 'Row ' + @row_count.to_s + ": User " + row['email_address'] + " doesn't exist to add to group " + row['group_name'] + "."
+        @logger.error(get_row_count.to_s) {"User " + row['email_address'] + " doesn't exist to add to group " + row['group_name']}
         return
       end
     else
-      puts 'Row ' + @row_count.to_s + ": User can't be added to group without email address."
+      @logger.error(get_row_count.to_s) {"User can't be added to group without email address."}
       return
     end
 
@@ -622,17 +658,22 @@ module ImportActions
       begin
         nid = group_name_to_nid(row['group_name'])
       rescue
-        puts 'Row ' + @row_count.to_s + ": Can't locate group " + row['group_name']
+        @logger.error(get_row_count.to_s) {"Can't locate group " + row['group_name']}
         return
       end
     else
-      puts 'Row ' + @row_count.to_s + ': User ' + row['email_address'] + " can't be added to group without group name."
+      @logger.error(get_row_count.to_s) {'User ' + row['email_address'] + " can't be added to group without group name."}
       return
     end
 
     response = {}
     # Join user to group.
     response['join'] = self.user_join_group(uid, nid)
+    if (response['join'].nil? || response['join'].empty? || response['join'].to_s.include?('<em></em>.'))
+      @logger.error(get_row_count.to_s) {'User ' + uid.to_s + " failed to join group " + nid.to_s}
+    else
+      @logger.info(get_row_count.to_s) {'User ' + uid.to_s + " joined group " + nid.to_s}
+    end
 
     # Add to user to group role
     # TODO - Split group role assignment to separate function.
@@ -647,11 +688,9 @@ module ImportActions
         begin
           rid = group_role_to_rid(group_role, nid)
         rescue
-          row_count = @row_count.to_s.nil? ? 'NIL-ROW-NUMBER' : @row_count.to_s
           group_role = group_role.nil? ? 'NIL-GROUP-ROLE' : group_role
-          group_name = row['group_name'].nil? ? 'NIL-GROUP-NAME' : row['group_name']
-          #puts 'Row ' + @row_count.to_s + ": Can't locate role " + group_role + ' in group ' + row['group_name']
-          puts 'Row ' + row_count + ": Can't locate role " + group_role + ' in group ' + group_name
+          group_name = row['group_name'].nil? ? uid.to_s : row['group_name']
+          @logger.error(get_row_count.to_s) {"Can't locate role " + group_role + ' in group ' + group_name}
         end
         response['role'] = self.user_group_role_add(uid, nid, rid) unless rid.nil?
       }
@@ -670,11 +709,11 @@ module ImportActions
       begin
         uid = email_to_uid(row['email_address'])
       rescue
-        puts 'Row ' + @row_count.to_s + ": User " + row['email_address'] + " doesn't exist to add to group " + row['group_name'] + "."
+        @logger.error(get_row_count.to_s) {"User " + row['email_address'] + " doesn't exist to remove from group " + row['group_name']}
         return
       end
     else
-      puts 'Row ' + @row_count.to_s + ": User can't be added to group without email address."
+      @logger.row(get_row_count.to_s) {"User can't be removed to group without email address."}
       return
     end
 
@@ -685,20 +724,20 @@ module ImportActions
       begin
         nid = group_name_to_nid(row['group_name'])
       rescue
-        puts 'Row ' + @row_count.to_s + ": Can't locate group " + row['group_name']
+        @logger.error(get_row_count.to_s) {"Can't locate group " + row['group_name']}
         return
       end
     else
-      puts 'Row ' + @row_count.to_s + ': User ' + row['email_address'] + " can't be added to group without group name."
+      @logger.error(get_row_count.to_s) {'User ' + row['email_address'] + " can't be added to group without group name."}
       return
     end
 
     response = {}
-    puts 'Row ' + @row_count.to_s + ': User ' + uid.to_s + " removed from group " + nid.to_s
+    @logger.info(get_row_count.to_s) {'User ' + uid.to_s + " removed from group " + nid.to_s}
     # Join user to group.
     response['leave'] = self.user_leave_group(uid, nid)
 
-    puts response['leave'].to_yaml
+    #puts response['leave'].to_yaml
 
     #log stuff!!
 

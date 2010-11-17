@@ -3,8 +3,10 @@ require 'restclient'
 require 'restclient/response'
 require 'xmlsimple'
 require "addressable/uri"
+require 'logger'
 
 class ApcirClient
+  attr_accessor :logger
 
   def initialize(api_key = nil, server = 'sandbox.allplayers.com', protocol = 'http://')
     @base_uri = Addressable::URI.join(protocol + server, '/api/v1/rest/')
