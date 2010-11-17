@@ -239,7 +239,8 @@ opts = GetoptLong.new(
   [ '--help', '-h', GetoptLong::NO_ARGUMENT ],
   [ '-p',       GetoptLong::REQUIRED_ARGUMENT],
   [ '--gdoc-mail',       GetoptLong::REQUIRED_ARGUMENT],
-  [ '--gdoc-pass',       GetoptLong::REQUIRED_ARGUMENT]
+  [ '--gdoc-pass',       GetoptLong::REQUIRED_ARGUMENT],
+  [ '--skip-rows', '-s',      GetoptLong::REQUIRED_ARGUMENT]
 )
 
 opts.each do |opt, arg|
@@ -252,6 +253,8 @@ opts.each do |opt, arg|
       @gdoc_mail = arg
     when '--gdoc-pass'
       @gdoc_pass = arg
+    when '--skip-rows'
+      $skip_rows = arg.to_i
   end
 end
 

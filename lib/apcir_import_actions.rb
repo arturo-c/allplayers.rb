@@ -138,6 +138,10 @@ module ImportActions
   def prepare_row(row_array, column_defs)
     @row_count = 1 unless @row_count
     @row_count+=1
+    if @row_count < $skip_rows
+      return {}
+    end
+
     puts 'Row ' + @row_count.to_s + ': Processing'
     row = row_array.to_hash(column_defs)
     # Convert everything to a string and strip whitespace.
@@ -232,13 +236,13 @@ module ImportActions
       # Update participant with responses.  We're done with parents.
       row['participant_uid'] = responses['participant_']['uid'] if responses['participant_'].has_key?('uid')
       row['participant_email_address'] = responses['participant_']['mail'] if responses['participant_'].has_key?('mail')
-      
+
       # Find the max number of groups being imported
       group_list = row.reject {|key, value| key.match('group_').nil?}
       number_of_groups = 0
       key_int_value = 0
       group_list.each {|key, value|
-        key_parts = key.split('_')        
+        key_parts = key.split('_')
         key_parts.each {|part|
           key_int_value = part.to_i
           if (key_int_value > number_of_groups)
@@ -247,7 +251,7 @@ module ImportActions
         }
       }
       puts 'Row ' + @row_count.to_s + ': Max number of groups: ' + number_of_groups.to_s
-      
+
       # Create the list of group names to iterate through
       group_names = []
       for i in 1..number_of_groups
@@ -638,7 +642,7 @@ module ImportActions
       group_roles_array = group_roles_array + row['group_role'].split(',')
       group_roles_array.each {|element|
         group_role = element.strip
-        
+
         # Get a rid to assign.
         begin
           rid = group_role_to_rid(group_role, nid)
