@@ -169,6 +169,34 @@ def google_docs_import
           'src' => 'https://spreadsheets.google.com/feeds/worksheets/0AoDhKnZl3R6pdEFRN3AtakxwNnhkMm9fbFo3ODlUeHc/private/full',
           'type' => 'application/atom+xml;type=feed',
         }
+      },
+      {
+        'title' => 'Frisco Player/Parent Import',
+        'content' => {
+          'src' => 'https://spreadsheets.google.com/feeds/worksheets/0AoDhKnZl3R6pdHZ6YUNJRTR4Q0pLTVVKQ2Y0eDIyQXc/private/full',
+          'type' => 'application/atom+xml;type=feed',
+        }
+      },
+      {
+        'title' => 'Park Cities YMCA GIRLS Parents import',
+        'content' => {
+          'src' => 'https://spreadsheets.google.com/feeds/worksheets/0ApT8y98472rDdC16OC1UVVYzMmVRaEtjRDlURkhPNFE/private/full',
+          'type' => 'application/atom+xml;type=feed',
+        }
+      },
+      {
+        'title' => 'Park Cities YMCA Coaches import',
+        'content' => {
+          'src' => 'https://spreadsheets.google.com/feeds/worksheets/0ApT8y98472rDdExjUHI3RmJvbnRrbnlkWEVBVUR1RWc/private/full',
+          'type' => 'application/atom+xml;type=feed',
+        }
+      },
+      {
+        'title' => 'Copy of Park Cities YMCA BOYS 2nd-4th Parents import',
+        'content' => {
+          'src' => 'https://spreadsheets.google.com/feeds/worksheets/0ApT8y98472rDdDdCU2tSazROYk42S1BwbzdIR1dweUE/private/full',
+          'type' => 'application/atom+xml;type=feed',
+        }
       }
     ]
   }
