@@ -217,7 +217,7 @@ module ImportActions
     # TODO - Extend to filter by group owner, too.  Reduce chance of mismatch.
     nodes = node_list({
         :type => 'group',
-        :title => name,
+        'title' => name,
       })
     if nodes.has_key?('item') && nodes['item'].length == 1
       return nodes['item'].first['nid']
@@ -575,7 +575,7 @@ module ImportActions
   def import_group(row)
     # If importing to existing NID, just return spreadsheet values.
     if row.has_key?('group_nid')
-      return {:title => row['group_name'], :nid => row['group_nid']}
+      return {'title' => row['group_name'], 'nid' => row['group_nid']}
     end
 
     # Assign owner uid/name to group.
@@ -596,7 +596,7 @@ module ImportActions
     end
 
     more_params = {
-      :uid => uid.to_s,
+      'uid' => uid.to_s,
       :name => owner['name'],
     }
 
