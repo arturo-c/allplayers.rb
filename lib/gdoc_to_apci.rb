@@ -102,16 +102,17 @@ end
 
 # Get arguments
 user = Etc.getlogin
-pass = nil
-@gdoc_mail = nil
-@gdoc_pass = nil
+pass, logger_level = nil
+@gdoc_mail, @gdoc_pass = nil
 
 opts = GetoptLong.new(
-  [ '--help', '-h', GetoptLong::NO_ARGUMENT ],
-  [ '-p',       GetoptLong::REQUIRED_ARGUMENT],
+  [ '--help', '-h',      GetoptLong::NO_ARGUMENT],
+  [ '-p',                GetoptLong::REQUIRED_ARGUMENT],
   [ '--gdoc-mail',       GetoptLong::REQUIRED_ARGUMENT],
   [ '--gdoc-pass',       GetoptLong::REQUIRED_ARGUMENT],
-  [ '--skip-rows', '-s',      GetoptLong::REQUIRED_ARGUMENT]
+  [ '--skip-rows', '-s', GetoptLong::REQUIRED_ARGUMENT],
+  [ '--threads',         GetoptLong::REQUIRED_ARGUMENT],
+  [ '--verbose', '-v',   GetoptLong::NO_ARGUMENT]
 )
 
 opts.each do |opt, arg|
@@ -126,6 +127,10 @@ opts.each do |opt, arg|
       @gdoc_pass = arg
     when '--skip-rows'
       $skip_rows = arg.to_i
+    when '--threads'
+      $thread_count = arg.to_i
+    when '--verbose'
+      logger_level = Logger::DEBUG
   end
 end
 
@@ -157,7 +162,7 @@ ensure
   rest_logger.level = Logger::DEBUG
   logger = Logger.new(path + '/import_' + log_suffix + '.log')
   logger.formatter = ApciFormatter.new
-  logger.level = logger_level.nil? ? Logger::INFO : logger_level
+  logger.level = logger_level.nil? ? Logger::DEBUG : logger_level
 end
 
 # End Logging.

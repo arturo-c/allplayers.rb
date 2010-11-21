@@ -313,7 +313,8 @@ module ImportActions
       @logger.info(get_row_count.to_s) {"Importing Participants, Parents and Group assignments\n"}
       # Multi-thread
       threads = []
-      thread_count = 15
+      # Set default thread_count to 15, accept global to change it.
+      thread_count = $thread_count.nil? ? 15 : $thread_count
       stripes = sheet.stripe_to_key_value(thread_count)
       for i in 0..(stripes.length-1) do
         threads << Thread.new {
