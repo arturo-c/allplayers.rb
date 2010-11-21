@@ -226,6 +226,11 @@ class ApcirClient
     get 'user/' + uid.to_s() + '/groups'
   end
 
+  def user_children_list(uid)
+    #[GET] {endpoint}/user/{uid}/children
+    get 'user/' + uid.to_s() + '/children'
+  end
+
   def user_group_role_add(uid, nid, rid)
     #[POST] {endpoint}/node/{nid}/addrole/{uid}/{rid}
     post 'node/' + nid.to_s() + '/addrole/' + uid.to_s() + '/' + rid.to_s()

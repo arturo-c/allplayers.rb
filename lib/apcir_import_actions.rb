@@ -145,19 +145,71 @@ module ImportActions
 
 
   def email_to_uid(email)
-    # 'Static' cache
-    @uid_map = Hash.new unless defined? @uid_map
-    if !@uid_map.has_key?(email)
-      users = self.user_list({:mail => email})
-      if users.has_key?('item') && users['item'].length == 1
-        @uid_map[email] = users['item'].first['uid']
+    if !@@uid_map.has_key?(email)
+      users = self.user_list({'mail' => email})
+      if users.has_key?('item')
+        if users['item'].length == 1
+          MUTEX.synchronize do
+            @@uid_map[email] = users['item'].first['uid']
+          end
+        else
+          raise DuplicateUserExists.new(email + 'matches multiple users')
+        end
       else
-        raise
+        return false
       end
     end
-    @uid_map[email]
-  rescue
-    raise
+    @@uid_map[email]
+  end
+
+  def verify_children(row, description = 'User')
+    # Fields to match
+    import = row.reject {|k,v| k != 'first_name' && k != 'last_name'}
+    prefixes = ['parent_1_', 'parent_2_']
+    matched_parents = []
+    matched_uid = nil
+    ret = nil
+    prefixes.each {|prefix|
+      parent_description = prefix.split('_').join(' ').strip.capitalize
+      if row.has_key?(prefix + 'uid')
+        children_uids = user_children_list(row[prefix + 'uid'])
+        next unless children_uids.has_key?('item')
+        children_uids['item'].each {|child_uid|
+          if (matched_uid.nil? || matched_uid != child_uid['id'])
+            child = user_get(child_uid['id'])
+            system = {}
+            system['first_name'] = child['field_firstname'] if child.has_key?('field_firstname')
+            system['last_name'] = child['field_lastname'] if child.has_key?('field_lastname')
+            if (system != import)
+              # Keep looking
+              next
+            end
+          end
+          # Found it
+          @logger.info(get_row_count.to_s) {parent_description + ' has matching child: ' + description + ' ' + row['first_name'] + ' ' + row['last_name']}
+          if matched_uid.nil?
+            matched_uid = child_uid['id']
+          end
+          if !child.nil?
+            ret = {'mail' => child['mail'], 'uid' => matched_uid } if ret.nil?
+          end
+          matched_parents.push(prefix)
+          break
+        }
+      end
+    }
+    # Add existing child to other parent if needed.
+    unless matched_uid.nil?
+      prefixes.each {|prefix|
+        parent_description = prefix.split('_').join(' ').strip.capitalize
+        if row.has_key?(prefix + 'uid') && !matched_parents.include?(prefix)
+          @logger.info(get_row_count.to_s) {'Adding existing child, ' + description + ' ' + row['first_name'] + ' ' + row['last_name'] + ' to has matching child : ' + parent_description}
+          self.user_parent_add(matched_uid, row[prefix + 'uid'])
+        end
+      }
+    end
+
+    return ret
   end
 
   def group_name_to_nid(name)
@@ -423,20 +475,30 @@ module ImportActions
     if !row.has_key?('email_address')
       # If 13 or under, no email  & has parent, request allplayers.net email.
       if row.has_key?('parent_1_uid') || row.has_key?('parent_2_uid')
+        # Avoid creating duplicate children.
+        existing_child = self.verify_children(row, description)
+        return existing_child unless existing_child.nil?
         # Request allplayers.net email
-        # TODO - Avoid creating duplicate children.
-        # TODO - Consider how to send welcome email to parent.
         more_params['email_alternative'] = {:value => 1}
+        # TODO - Consider how to send welcome email to parent. (Queue allplayers.net emails in Drupal for cron playback)
       else
-        puts 'Row ' + get_row_count.to_s + ': Missing parents for '+ description +' without email address.'
+        @logger.error(get_row_count.to_s) {'Missing parents for '+ description +' without email address.'}
         return {}
       end
-    elsif
-      # Check if user already exists
-      uid = email_to_uid(row['email_address']) rescue false
+    else
+      # Check if user already
+      begin
+        uid = email_to_uid(row['email_address'])
+      rescue Exception => e
+        @logger.error(get_row_count.to_s) {'' + description + ' ' + e.message}
+        return {}
+      end
       if uid
-        puts 'Row ' + get_row_count.to_s + ': ' + description +' already exists: ' + row['email_address'] + ' at UID: ' + uid + '. No profile fields will be imported.  Participant will still be added to groups.'
-        return {:mail => row['email_address'], :uid => uid }
+        @logger.warn(get_row_count.to_s) {'' + description +' already exists: ' + row['email_address'] + ' at UID: ' + uid + '. No profile fields will be imported.  Participant will still be added to groups.'}
+        return {'mail' => row['email_address'], 'uid' => uid }
+      elsif !row['email_address'].valid_email_address?
+        @logger.error(get_row_count.to_s) {'' + description +' has an invalid email address: ' + row['email_address'] + '. Skipping.'}
+        return {}
       end
     end
 
