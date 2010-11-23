@@ -185,9 +185,12 @@ class ApcirClient
 
     # Defaults, can be overridden.
     more_params = {
-      :notify => '1', # Send welcome email.
-      :force_password_change => '1', # Force password change on first login.
-      :pass => (0...16).map{ (('a'..'z').to_a + ('A'..'Z').to_a + ('2'..'9').to_a)[rand(60)] }.join, # Random password, if needed.
+      # Send welcome email.
+      :notify => '1',
+      # Force password change on first login.
+      :force_password_change => '1',
+      # Generate a password meeting policy standards.
+      :pass => ((0...8).map{ (('a'..'z').to_a + ('A'..'Z').to_a + ('2'..'9').to_a)[rand(60)] } + (0...2).map{ (('a'..'z').to_a)[rand(26)] } + (0...2).map{ (('A'..'Z').to_a)[rand(26)] } + (0...2).map{ (('2'..'9').to_a)[rand(8)] } + (0...2).map{ (['!','$','&','@'])[rand(4)] }).shuffle.join,
     }.merge(more_params)
 
     #[POST] {endpoint}/user + DATA (form_state for user_register form
