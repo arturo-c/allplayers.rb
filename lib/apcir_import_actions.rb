@@ -81,7 +81,6 @@ end
 class ApciFormatter < Logger::Formatter
   def initialize
     @highline = HighLine.new
-    #@hl.color_scheme = HighLine::SampleColorScheme.new
     super
   end
   # Provide a call() method that returns the formatted message.
@@ -104,7 +103,9 @@ end
 
 # Functions to aid importing any type of spreadsheet to Allplayers.com.
 module ImportActions
-  MUTEX = Mutex.new
+  @@stats_mutex = Mutex.new
+  @@user_mutex = Mutex.new
+  @@email_mutexes = {}
 
   # Static UID to email
   @@uid_map = {}
@@ -143,23 +144,52 @@ module ImportActions
     uid
   end
 
-
-  def email_to_uid(email)
+  # Cache and honor locks on email to uid req's.
+  def email_to_uid(email, action = nil)
+    # General lock while we peek in, release this quick.
+    @@user_mutex.lock
     if !@@uid_map.has_key?(email)
-      users = self.user_list({'mail' => email})
-      if users.has_key?('item')
-        if users['item'].length == 1
-          MUTEX.synchronize do
-            @@uid_map[email] = users['item'].first['uid']
-          end
-        else
-          raise DuplicateUserExists.new(email + 'matches multiple users')
-        end
+      # Request a targeted lock
+      @@email_mutexes[email] = Mutex.new if !@@email_mutexes.has_key?(email)
+      @@email_mutexes[email].lock
+      # Got the lock, did another thread find our UID?
+      if @@uid_map.has_key?(email)
+        @@email_mutexes[email].unlock
       else
-        return false
+        # Release the general lock while we query this address.
+        @@user_mutex.unlock
+        # Query Drupal for user.
+        uid = match_user_email(email)
+        if !uid.nil?
+          @@uid_map[email] = uid
+          @@email_mutexes[email].unlock
+          return uid
+        else
+          # Close the lock unless the caller wants to keep it.
+          unless action == :lock
+            @@email_mutexes[email].unlock
+            return nil
+          else
+            # Caller wants the lock to generate a user.
+            return nil, @@email_mutexes[email]
+          end
+        end
       end
     end
+    @@user_mutex.unlock
     @@uid_map[email]
+  end
+
+  def match_user_email(email)
+    users = self.user_list({'mail' => email})
+    if users.respond_to?(:has_key?) && users.has_key?('item')
+      if users['item'].length == 1
+        return users['item'].first['uid'] if users['item'].first.has_key?('uid')
+      elsif users['item'].length > 1
+        raise DuplicateUserExists.new(email + 'matches multiple users')
+      end
+    end
+    return nil
   end
 
   def verify_children(row, description = 'User')
@@ -266,7 +296,7 @@ module ImportActions
   end
 
   def increment_stat(type)
-    MUTEX.synchronize do
+    @@stats_mutex.synchronize do
       if @@stats.has_key?(type)
         @@stats[type]+=1
       else
@@ -321,7 +351,12 @@ module ImportActions
           stripes[i].each {|row| self.import_mixed_user(self.prepare_row(row[1], column_defs, row[0] + skipped_rows))}
         }
       end
-      threads.each {|thread| thread.join}
+      threads.each_index {|i|
+        threads[i].join
+        puts 'Thread ' + i.to_s + ' exited.'
+        # Avoid over ambitious deadlock detection on some Ruby versions.
+        sleep 1
+      }
     elsif (name == 'Bad Participant Information')
       # remove mixed sheet participants from groups
       @logger.info(get_row_count.to_s) {"Importing Participants, Parents and Group assignments\n"}
@@ -489,12 +524,12 @@ module ImportActions
     else
       # Check if user already
       begin
-        uid = email_to_uid(row['email_address'])
+        uid, lock = email_to_uid(row['email_address'], :lock)
       rescue Exception => e
-        @logger.error(get_row_count.to_s) {'' + description + ' ' + e.message}
+        @logger.error(get_row_count.to_s) {'' + description + ' ' + e.message.to_s}
         return {}
       end
-      if uid
+      if !uid.nil?
         @logger.warn(get_row_count.to_s) {'' + description +' already exists: ' + row['email_address'] + ' at UID: ' + uid + '. No profile fields will be imported.  Participant will still be added to groups.'}
         return {'mail' => row['email_address'], 'uid' => uid }
       elsif !row['email_address'].valid_email_address?
@@ -563,14 +598,22 @@ module ImportActions
   #rescue
   #  @logger.info(get_row_count.to_s) {'Unknown Error.  Failed to import ' + description}
   else
-    if !response.nil?
+    if !response.nil?  && response.has_key?('uid')
       increment_stat('Users')
       increment_stat(description + 's') if description != 'User'
+
+      # Cache the new users UID
+      @@user_mutex.lock
+      @@uid_map[response['mail']] = response['uid']
+      @@user_mutex.unlock
+
       response['parenting_1_response'] = self.user_parent_add(response['uid'], row['parent_1_uid']) if row.has_key?('parent_1_uid')
       response['parenting_2_response'] = self.user_parent_add(response['uid'], row['parent_2_uid']) if row.has_key?('parent_2_uid')
       return response
     end
-    #log stuff!!
+  ensure
+    # If we received a lock for this email address, release it.
+    lock.unlock if lock.respond_to?(:unlock)
   end
 
   def import_group(row)
@@ -702,7 +745,7 @@ module ImportActions
     # Check User.
     if row.has_key?('uid')
       uid = row['uid']
-    elsif row.has_key?('email_address')
+    elsif row.has_key?('email_address') && !row['email_address'].respond_to?(:to_s)
       begin
         uid = email_to_uid(row['email_address'])
       rescue
@@ -731,11 +774,16 @@ module ImportActions
 
     response = {}
     # Join user to group.
-    response['join'] = self.user_join_group(uid, nid)
-    if (response['join'].nil? || response['join'].empty? || response['join'].to_s.include?('<em></em>.'))
-      @logger.error(get_row_count.to_s) {'User ' + uid.to_s + " failed to join group " + nid.to_s}
+    begin
+      response['join'] = self.user_join_group(uid, nid)
+    rescue RestClient::Exception => e
+      @logger.error(get_row_count.to_s) {'User ' + uid.to_s + " failed to join group " + nid.to_s + ' ' + e.message.to_s}
     else
-      @logger.info(get_row_count.to_s) {'User ' + uid.to_s + " joined group " + nid.to_s}
+      if (response['join'].nil? || response['join'].empty? || response['join'].to_s.include?('<em></em>.'))
+        @logger.error(get_row_count.to_s) {'User ' + uid.to_s + " failed to join group " + nid.to_s}
+      else
+        @logger.info(get_row_count.to_s) {'User ' + uid.to_s + " joined group " + nid.to_s}
+      end
     end
 
     # Add to user to group role
