@@ -2,7 +2,7 @@ require 'rubygems'
 require 'restclient'
 require 'restclient/response'
 require 'xmlsimple'
-require "addressable/uri"
+require 'addressable/uri'
 require 'logger'
 
 class ApcirClient
@@ -260,16 +260,13 @@ class ApcirClient
       #   Hash) while keeping the methods...
       XmlSimple.xml_in(response, { 'ForceArray' => ['item'] })
     rescue REXML::ParseException => xml_err
-        puts "\nFailed to parse server response."
-        raise
+      # XML Parser error
+      raise "Failed to parse server response."
     rescue RestClient::Exception => e
-      puts "\nGET failed: " + e.inspect
-      begin
-        puts XmlSimple.xml_in(e.response, { 'ForceArray' => ['item'] }).to_yaml
-      rescue REXML::ParseException => xml_err
-        puts "\nFailed to parse server error."
-      end
-      #raise
+      # @TODO - Try to re-raise the same error with a better message.
+      # Append message with stripped response.  This doesn't work.
+      #raise e.exception(e.message + ' ' + e.response.gsub(/<\/?[^>]*>/, "").strip)
+      raise
     end
   end
 
@@ -285,15 +282,12 @@ class ApcirClient
       #   Hash) while keeping the methods...
       XmlSimple.xml_in(response, { 'ForceArray' => ['item'] })
     rescue REXML::ParseException => xml_err
-        puts "\nFailed to parse server response."
-        raise
+      # XML Parser error
+      raise "Failed to parse server response."
     rescue RestClient::Exception => e
-      puts "\nPOST failed: " + e.inspect
-      begin
-        puts XmlSimple.xml_in(e.response, { 'ForceArray' => ['item'] }).to_yaml
-      rescue REXML::ParseException => xml_err
-        puts "\nFailed to parse server error."
-      end
+      # @TODO - Try to re-raise the same error with a better message.
+      # Append message with stripped response.  This doesn't work.
+      #raise e.exception(e.message + ' ' + e.response.gsub(/<\/?[^>]*>/, "").strip)
       raise
     end
   end
@@ -310,16 +304,13 @@ class ApcirClient
       #   Hash) while keeping the methods...
       XmlSimple.xml_in(response, { 'ForceArray' => ['item'] })
     rescue REXML::ParseException => xml_err
-      puts "\nFailed to parse server response."
-      #raise
+      # XML Parser error
+      raise "Failed to parse server response."
     rescue RestClient::Exception => e
-      puts "\nPUT failed: " + e.inspect
-      begin
-        puts XmlSimple.xml_in(e.response, { 'ForceArray' => ['item'] }).to_yaml
-      rescue REXML::ParseException => xml_err
-        puts "\nFailed to parse server error."
-      end
-      #raise
+      # @TODO - Try to re-raise the same error with a better message.
+      # Append message with stripped response.  This doesn't work.
+      #raise e.exception(e.message + ' ' + e.response.gsub(/<\/?[^>]*>/, "").strip)
+      raise
     end
   end
 end
