@@ -468,19 +468,19 @@ module ImportActions
       return {}
     end
 
-    (1..2).each { |i|
-      key = 'parent_' + i.to_s + '_email_address'
+    ('1'..'2').each { |i|
+      key = 'parent_' + i + '_email_address'
       if row.has_key?(key)
         parent_uid = nil
         begin
           parent_uid = self.email_to_uid(row[key])
         rescue DuplicateUserExists => dup_e
-          @logger.error(get_row_count.to_s) {'Parent ' + i.to_s +  + ' ' + dup_e.message.to_s}
+          @logger.error(get_row_count.to_s) {'Parent ' + i + ' ' + dup_e.message.to_s}
         end
         if parent_uid.nil?
-          @logger.warn(get_row_count.to_s) {"Can't find account for Parent " + i.to_s + ": " + row[key]}
+          @logger.warn(get_row_count.to_s) {"Can't find account for Parent " + i + ": " + row[key]}
         else
-          row['parent_' + i.to_s + '_uid'] = parent_uid
+          row['parent_' + i + '_uid'] = parent_uid
         end
       end
     }
