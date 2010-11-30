@@ -475,7 +475,11 @@ module ImportActions
       key = 'parent_' + i.to_s + '_email_address'
       if row.has_key?(key)
         parent_uid = nil
-        parent_uid = self.email_to_uid(row[key])
+        begin
+          parent_uid = self.email_to_uid(row[key])
+        rescue DuplicateUserExists => dup_e
+          @logger.error(get_row_count.to_s) {'Parent ' + i.to_s +  + ' ' + dup_e.message.to_s}
+        end
         if parent_uid.nil?
           @logger.warn(get_row_count.to_s) {"Can't find account for Parent " + i.to_s + ": " + row[key]}
         else
@@ -483,24 +487,6 @@ module ImportActions
         end
       end
     }
-
-    if row.has_key?('parent_1_email_address')
-      parent_1_uid = self.email_to_uid(row['parent_1_email_address'])
-      if parent_1_uid.nil?
-        @logger.warn(get_row_count.to_s) {"Can't find account for Parent 1 : " + row['parent_1_email_address']}
-      else
-        row['parent_1_uid'] = parent_1_uid
-      end
-    end
-
-    if row.has_key?('parent_2_email_address')
-      parent_2_uid = self.email_to_uid(row['parent_2_email_address'])
-      if parent_2_uid.nil?
-        @logger.warn(get_row_count.to_s) {"Can't find account for Parent 2 : " + row['parent_2_email_address']}
-      else
-        row['parent_2_uid'] = parent_2_uid
-      end
-    end
 
     # If 13 or under, verify parent, request allplayers.net email if needed.
     if birthdate.to_age < 14
