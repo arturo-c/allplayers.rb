@@ -152,36 +152,18 @@ module ImportActions
       # Haven't cached it, create a targeted Mutex for it.
       @@email_mutexes[email] = Mutex.new unless @@email_mutexes.has_key?(email)
     end
+
+    uid = nil
     # Try to get a targeted lock.
-    while !@@email_mutexes[email].try_lock do
-      @logger.debug(get_row_count.to_s) {"Waiting for lock on " + email}
-      @logger.debug(get_row_count.to_s) {@@email_mutexes[email].inspect}
-      # Make sure we don't send another request too soon.
-      sleep 10
-    end
-    # Got the lock, did another thread find our UID?
-    if @@uid_map.has_key?(email)
-      return @@uid_map[email]
-    else
-      # Make sure we don't sneak a duplicate user into Drupal.
-      sleep 10
-      # Query Drupal for user.
+    @@email_mutexes[email].synchronize {
+      # Got the lock, short circuit if another thread found our UID.
+      return @@uid_map[email] if @@uid_map.has_key?(email)
       uid = match_user_email(email)
-      if !uid.nil?
-        @@uid_map[email] = uid
-        @@email_mutexes[email].unlock
-        return uid
-      else
-        # Close the lock unless the caller wants to keep it.
-        unless action == :lock
-          @@email_mutexes[email].unlock
-          return nil
-        else
-          # Caller wants the lock while it tries to generate a user.
-          return nil, @@email_mutexes[email]
-        end
-      end
-    end
+      @@uid_map[email] = uid unless uid.nil?
+    }
+    # Caller wants the lock while it tries to generate a user.
+    return uid, @@email_mutexes[email] if action == :lock
+    uid
   end
 
   def match_user_email(email)
@@ -529,16 +511,24 @@ module ImportActions
       end
     end
 
+    lock = nil
     # Request allplayers.net email if needed.
     if !row.has_key?('email_address')
       # If 13 or under, no email  & has parent, request allplayers.net email.
       if row.has_key?('parent_1_uid') || row.has_key?('parent_2_uid')
-        # Avoid creating duplicate children.
-        existing_child = self.verify_children(row, description)
-        return existing_child unless existing_child.nil?
         # Request allplayers.net email
         more_params['email_alternative'] = {:value => 1}
         # TODO - Consider how to send welcome email to parent. (Queue allplayers.net emails in Drupal for cron playback)
+        # Create a lock for these parents
+        @@user_mutex.synchronize do
+          parent_uids = []
+          parent_uids.push(row['parent_1_uid']) if row.has_key?('parent_1_uid')
+          parent_uids.push(row['parent_2_uid']) if row.has_key?('parent_2_uid')
+          parents_key = parent_uids.sort.join('_')
+          # Haven't cached it, create a targeted Mutex for it.
+          @@email_mutexes[parents_key] = Mutex.new unless @@email_mutexes.has_key?(parents_key)
+          lock = @@email_mutexes[parents_key]
+        end
       else
         @logger.error(get_row_count.to_s) {'Missing parents for '+ description +' without email address.'}
         return {}
@@ -551,11 +541,12 @@ module ImportActions
         @logger.error(get_row_count.to_s) {description + ' ' + dup_e.message.to_s}
         return {}
       end
+
       if !uid.nil?
-        @logger.warn(get_row_count.to_s) {'' + description +' already exists: ' + row['email_address'] + ' at UID: ' + uid + '. No profile fields will be imported.  Participant will still be added to groups.'}
+        @logger.warn(get_row_count.to_s) {description + ' already exists: ' + row['email_address'] + ' at UID: ' + uid + '. No profile fields will be imported.  Participant will still be added to groups.'}
         return {'mail' => row['email_address'], 'uid' => uid }
       elsif !row['email_address'].valid_email_address?
-        @logger.error(get_row_count.to_s) {'' + description +' has an invalid email address: ' + row['email_address'] + '. Skipping.'}
+        @logger.error(get_row_count.to_s) {description + ' has an invalid email address: ' + row['email_address'] + '. Skipping.'}
         return {}
       end
     end
@@ -607,32 +598,46 @@ module ImportActions
     emergency_contact_location['country'] =  row['emergency_contact_country'] if row.has_key?('emergency_contact_country')
     more_params['field_emergency_contact'] = {:'0' => emergency_contact_location} unless emergency_contact_location.empty?
 
-    response = self.user_create(
-      row['email_address'],
-      row['first_name'],
-      row['last_name'],
-      row['gender'],
-      birthdate,
-      more_params
-    )
+    response = nil
+
+    # Lock down this email address.
+    lock.synchronize {
+      # Last minute checks.
+      if !row['email_address'].nil? && @@uid_map.has_key?(row['email_address'])
+        @logger.warn(get_row_count.to_s) {description + ' already exists: ' + row['email_address'] + ' at UID: ' + @@uid_map[row['email_address']] + '. No profile fields will be imported.  Participant will still be added to groups.'}
+        return {'mail' => row['email_address'], 'uid' => @@uid_map[row['email_address']] }
+      end
+
+      # Avoid creating duplicate children.
+      existing_child = self.verify_children(row, description)
+      return existing_child unless existing_child.nil?
+
+      response = self.user_create(
+        row['email_address'],
+        row['first_name'],
+        row['last_name'],
+        row['gender'],
+        birthdate,
+        more_params
+      )
+
+      if !response.nil?  && response.has_key?('uid')
+        # Cache the new users UID while we have the lock.
+        @@user_mutex.synchronize { @@uid_map[response['mail']] = response['uid'] }
+      end
+    }
+
     if !response.nil?  && response.has_key?('uid')
       increment_stat('Users')
       increment_stat(description + 's') if description != 'User'
 
-      # Cache the new users UID
-      @@user_mutex.synchronize do
-        @@uid_map[response['mail']] = response['uid']
-      end
-
       response['parenting_1_response'] = self.user_parent_add(response['uid'], row['parent_1_uid']) if row.has_key?('parent_1_uid')
       response['parenting_2_response'] = self.user_parent_add(response['uid'], row['parent_2_uid']) if row.has_key?('parent_2_uid')
     end
+
     response
   rescue RestClient::Exception => e
-    @logger.error(get_row_count.to_s) {'Failed to import ' + description}
-  ensure
-    # If we received a lock for this email address, release it.
-    lock.unlock if lock.respond_to?(:unlock)
+    @logger.error(get_row_count.to_s) {'Failed to import ' + description + ': ' + e.message.to_s}
   end
 
   def import_group(row)
