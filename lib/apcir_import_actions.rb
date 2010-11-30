@@ -176,9 +176,6 @@ module ImportActions
       end
     end
     return nil
-  rescue
-    @@email_mutexes[email].unlock if @@email_mutexes.has_key?(email)
-    raise
   end
 
   def verify_children(row, description = 'User')
