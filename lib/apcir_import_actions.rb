@@ -77,8 +77,19 @@ class String
   end
 end
 
+# Write the correct header for the csv log
+class ApciLogDevice < Logger::LogDevice
+  private
+  def add_log_header(file)
+      file.write(
+     	"\"Severity\",\"Date\",\"Severity (Full)\",\"Info\"\n"
+    )
+  end
+end
+
 # Build a Logger::Formatter subclass.
 class ApciFormatter < Logger::Formatter
+  Format = "\"%s\",\"[%s#%d]\",\"%5s\",\"%s: %s\"\n"
   def initialize
     @highline = HighLine.new
     super
@@ -97,7 +108,8 @@ class ApciFormatter < Logger::Formatter
     else
       say message_color
     end
-    super
+    Format % [severity[0..0], format_datetime(time), $$, severity, program_name,
+        msg2str(message)]
   end
 end
 

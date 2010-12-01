@@ -160,7 +160,9 @@ ensure
   rest_logger = Logger.new(path + '/rest_' + log_suffix + '.log')
   rest_logger.formatter = Logger::Formatter.new
   rest_logger.level = Logger::DEBUG
-  logger = Logger.new(path + '/import_' + log_suffix + '.log')
+  logdev = ApciLogDevice.new(path + '/import_' + log_suffix + '.csv',
+    :shift_age => 0, :shift_size => 1048576)
+  logger = Logger.new(logdev)
   logger.formatter = ApciFormatter.new
   logger.level = logger_level.nil? ? Logger::DEBUG : logger_level
 end
