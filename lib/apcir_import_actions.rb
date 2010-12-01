@@ -82,14 +82,14 @@ class ApciLogDevice < Logger::LogDevice
   private
   def add_log_header(file)
       file.write(
-     	"\"Severity\",\"Date\",\"Severity (Full)\",\"Info\"\n"
+     	"\"Severity\",\"Date\",\"Severity (Full)\",\"Row\",\"Info\"\n"
     )
   end
 end
 
 # Build a Logger::Formatter subclass.
 class ApciFormatter < Logger::Formatter
-  Format = "\"%s\",\"[%s#%d]\",\"%5s\",\"%s: %s\"\n"
+  Format = "\"%s\",\"[%s#%d]\",\"%5s\",\"%s\",\"%s\"\n"
   def initialize
     @highline = HighLine.new
     super
