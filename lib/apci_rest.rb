@@ -234,9 +234,9 @@ class ApcirClient
     get 'user/' + uid.to_s() + '/children'
   end
 
-  def user_group_role_add(uid, nid, rid)
+  def user_group_role_add(uid, nid, rid, options = {})
     #[POST] {endpoint}/node/{nid}/addrole/{uid}/{rid}
-    post 'node/' + nid.to_s() + '/addrole/' + uid.to_s() + '/' + rid.to_s()
+    post 'node/' + nid.to_s() + '/addrole/' + uid.to_s() + '/' + rid.to_s(), options
   end
 
   def user_parent_add(child_uid, parent_uid)

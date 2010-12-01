@@ -821,7 +821,15 @@ module ImportActions
           # Log with either group_name or group nid.
           @logger.error(get_row_count.to_s) {"Can't locate role " + group_role + ' in group ' + (row['group_name'].nil? ? nid.to_s : row['group_name'])}
         end
-        response['role'] = self.user_group_role_add(uid, nid, rid) unless rid.nil?
+        options = {}
+        if row.has_key?('group_fee')
+          options = case row['group_fee']
+            when 'full' then {:should_pay => 1, :payment_method => :full}
+            when 'plan' then {:should_pay => 1, :payment_method => :plan}
+            else {}
+          end
+        end
+        response['role'] = self.user_group_role_add(uid, nid, rid, options) unless rid.nil?
       }
     end
 
