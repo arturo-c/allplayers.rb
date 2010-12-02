@@ -53,7 +53,7 @@ def google_docs_import
     break if cmd == ":quit"
 
     # Worksheet import menu.
-    @apci_session.logger.info('Google Data') {"Fetching \"#{cmd}\"..."}
+    @apci_session.logger.info('Google Data') {"Fetching '#{cmd}'..."}
     @apci_session.logger.debug('Google Data') {'Spreadsheet source: ' + choices[cmd]['content']['src']}
     worksheets = g.get_content(choices[cmd]['content']['src'])
 
