@@ -5,6 +5,14 @@ require 'xmlsimple'
 require 'addressable/uri'
 require 'logger'
 
+# duck-punch some pretty error messages into RestClient library exceptions.
+RestClient::STATUSES.each_pair do |code, message|
+  RestClient::Exceptions::EXCEPTIONS_MAP[code].send(:define_method, :message) {
+    reponse_error = self.response.gsub(/<\/?[^>]*>/, "").strip.gsub(/\r\n?/, ', ')
+    "#{http_code ? "#{http_code} " : ''}#{message} : #{reponse_error}"
+    }
+end
+
 class ApcirClient
   attr_accessor :logger
 
@@ -262,11 +270,6 @@ class ApcirClient
     rescue REXML::ParseException => xml_err
       # XML Parser error
       raise "Failed to parse server response."
-    rescue RestClient::Exception => e
-      # @TODO - Try to re-raise the same error with a better message.
-      # Append message with stripped response.  This doesn't work.
-      #raise e.exception(e.message + ' ' + e.response.gsub(/<\/?[^>]*>/, "").strip)
-      raise
     end
   end
 
@@ -284,11 +287,6 @@ class ApcirClient
     rescue REXML::ParseException => xml_err
       # XML Parser error
       raise "Failed to parse server response."
-    rescue RestClient::Exception => e
-      # @TODO - Try to re-raise the same error with a better message.
-      # Append message with stripped response.  This doesn't work.
-      #raise e.exception(e.message + ' ' + e.response.gsub(/<\/?[^>]*>/, "").strip)
-      raise
     end
   end
 
@@ -306,11 +304,6 @@ class ApcirClient
     rescue REXML::ParseException => xml_err
       # XML Parser error
       raise "Failed to parse server response."
-    rescue RestClient::Exception => e
-      # @TODO - Try to re-raise the same error with a better message.
-      # Append message with stripped response.  This doesn't work.
-      #raise e.exception(e.message + ' ' + e.response.gsub(/<\/?[^>]*>/, "").strip)
-      raise
     end
   end
 end

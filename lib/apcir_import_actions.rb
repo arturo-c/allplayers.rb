@@ -632,7 +632,7 @@ module ImportActions
 
     response
   rescue RestClient::Exception => e
-    @logger.error(get_row_count.to_s) {'Failed to import ' + description + ': ' + e.message.to_s}
+    @logger.error(get_row_count.to_s) {'Failed to import ' + description + ': ' + e.message}
   end
 
   def import_group(row)
@@ -719,8 +719,7 @@ module ImportActions
       more_params
     )
   rescue RestClient::Exception => e
-    @logger.error(get_row_count.to_s) {'Failed to import group'}
-    @logger.debug(get_row_count.to_s) {e.backtrace}
+    @logger.error(get_row_count.to_s) {'Failed to import group: ' + e.message}
   else
     #log stuff!!
     if (response && response.has_key?('nid'))
@@ -797,7 +796,7 @@ module ImportActions
       # Consider doing this in one step with og_rap services, save a post (and GET lookup?)
       response['join'] = self.user_join_group(uid, nid)
     rescue RestClient::Exception => e
-      @logger.error(get_row_count.to_s) {'User ' + uid.to_s + " failed to join group " + nid.to_s + ': ' + e.message.to_s}
+      @logger.error(get_row_count.to_s) {'User ' + uid.to_s + " failed to join group " + nid.to_s + ': ' + e.message}
     else
       if (response['join'].nil? || response['join'].empty?)
         @logger.error(get_row_count.to_s) {'User ' + uid.to_s + " failed to join group " + nid.to_s}
