@@ -1,3 +1,25 @@
 == allplayers-ruby-client
 
-You should document your project here.
+AllPlayer.com, Inc. Ruby client for importing users, groups, events, etc via
+REST API.
+
+Requires Ruby + Rubygems and the following:
+
+sudo apt-get install ruby libopenssl-ruby
+sudo gem install xml-simple
+sudo gem install addressable
+sudo gem install highline
+sudo gem install rest-client
+sudo gem install activesupport
+sudo gem install i18n
+sudo gem install ci_reporter
+
+To test,
+
+sudo gem install ci_reporter
+
+export APCI_REST_TEST_HOST=host.allplayers.com
+export APCI_REST_TEST_USER=user
+export APCI_REST_TEST_PASS=password
+
+then 'rake test'.

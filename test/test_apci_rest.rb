@@ -232,7 +232,17 @@ class TestApcirClient < Test::Unit::TestCase
     nid = profiles['item'].first['nid']
     profile = $apci_session.node_get(nid)
 
+    birthday = Date.new(1983,5,23)
+
     params = {
+      :field_birth_date => {:'0' => {:value => {
+            :month => birthday.mon.to_s(),
+            :hour => '0',
+            :minute => '0',
+            :second => '0',
+            :day => birthday.mday.to_s(),
+            :year => birthday.year.to_s(),
+          }}},
       'field_school' => {'0' => {'value' => 'Your Mom'}},
       'field_firstname[0][value]'=> 'Testy',
       'group-emergency-contact' => {

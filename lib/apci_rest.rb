@@ -8,7 +8,7 @@ require 'logger'
 # duck-punch some pretty error messages into RestClient library exceptions.
 RestClient::STATUSES.each_pair do |code, message|
   RestClient::Exceptions::EXCEPTIONS_MAP[code].send(:define_method, :message) {
-    reponse_error = self.response.gsub(/<\/?[^>]*>/, "").strip.gsub(/\r\n?/, ', ')
+    reponse_error = CGI::unescapeHTML(self.response.gsub(/<\/?[^>]*>/, " ").strip.gsub(/\r\n?/, ', ').squeeze)
     "#{http_code ? "#{http_code} " : ''}#{message} : #{reponse_error}"
     }
 end
