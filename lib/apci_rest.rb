@@ -10,7 +10,7 @@ RestClient::STATUSES.each_pair do |code, message|
   RestClient::Exceptions::EXCEPTIONS_MAP[code].send(:define_method, :message) {
     response_error = ''
     if !self.response.nil?
-        response_error = ' : ' + CGI::unescapeHTML(self.response.gsub(/<\/?[^>]*>/, " ").strip.gsub(/\r\n?/, ', ').squeeze)
+        response_error = ' : ' + CGI::unescapeHTML(self.response.gsub(/<\/?[^>]*>/, " ").strip.gsub(/\r\n?/, ', ').squeeze(' '))
     end
     "#{http_code ? "#{http_code} " : ''}#{message}#{response_error}"
   }

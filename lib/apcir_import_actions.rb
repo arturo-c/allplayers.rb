@@ -401,6 +401,9 @@ module ImportActions
       description = prefix.split('_').join(' ').strip.capitalize
 
       responses[prefix] = import_user(user, description) unless user.empty?
+      if !responses[prefix].respond_to?(:has_key?)
+        responses[prefix] = {}
+      end
     }
 
     if responses.has_key?('participant_') && !responses['participant_'].nil?
@@ -565,13 +568,17 @@ module ImportActions
     more_params['field_emergency_contact_lname'] = {:'0' => {:value => row['emergency_contact_last_name']}} if row.has_key?('emergency_contact_last_name')
     more_params['field_emergency_contact_phone'] = {:'0' => {:value => row['emergency_contact_number']}} if row.has_key?('emergency_contact_number')
     more_params['field_hat_size'] = {:'0' => {:value => row['hat_size']}} if row.has_key?('hat_size')
-    more_params['field_height'] = {:'0' => {:value => apci_field_height(row['height'])}} if row.has_key?('height')
     more_params['field_pant_size'] = {:'0' => {:value => row['pant_size']}} if row.has_key?('pant_size')
     more_params['field_phone'] = {:'0' => {:value => row['home_phone']}} if row.has_key?('home_phone')
     more_params['field_school'] = {:'0' => {:value => row['school']}} if row.has_key?('school')
     more_params['field_school_grade'] = {:'0' => {:value => row['grade']}} if row.has_key?('grade')
-    more_params['field_shoe_size'] = {:'0' => {:value => apci_field_shoe_size(row['shoe_size'])}} if row.has_key?('shoe_size')
-    more_params['field_size'] = {:'0' => {:value => apci_field_shirt_size(row['shirt_size'])}} if row.has_key?('shirt_size')
+    begin
+      more_params['field_height'] = {:'0' => {:value => apci_field_height(row['height'])}} if row.has_key?('height')
+      more_params['field_shoe_size'] = {:'0' => {:value => apci_field_shoe_size(row['shoe_size'])}} if row.has_key?('shoe_size')
+      more_params['field_size'] = {:'0' => {:value => apci_field_shirt_size(row['shirt_size'])}} if row.has_key?('shirt_size')
+    rescue RuntimeError => e
+      @logger.error(get_row_count.to_s) {'Error parsing ' + description + ': ' + e.message}
+    end
     more_params['field_weight'] = {:'0' => {:value => row['weight']}} if row.has_key?('weight')
     more_params['field_organization'] = {:'0' => {:value => row['organization']}} if row.has_key?('organization')
 
@@ -593,7 +600,7 @@ module ImportActions
     emergency_contact_location['country'] =  row['emergency_contact_country'] if row.has_key?('emergency_contact_country')
     more_params['field_emergency_contact'] = {:'0' => emergency_contact_location} unless emergency_contact_location.empty?
 
-    response = nil
+    response = {}
 
     # Lock down this email address.
     lock.synchronize {
@@ -629,8 +636,8 @@ module ImportActions
       response['parenting_1_response'] = self.user_parent_add(response['uid'], row['parent_1_uid']) if row.has_key?('parent_1_uid')
       response['parenting_2_response'] = self.user_parent_add(response['uid'], row['parent_2_uid']) if row.has_key?('parent_2_uid')
     end
-
-    response
+    
+    return response
   rescue RestClient::Exception => e
     @logger.error(get_row_count.to_s) {'Failed to import ' + description + ': ' + e.message}
   end
