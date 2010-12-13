@@ -243,8 +243,9 @@ class TestApcirClient < Test::Unit::TestCase
             :day => birthday.mday.to_s(),
             :year => birthday.year.to_s(),
           }}},
-      'field_school' => {'0' => {'value' => 'Your Mom'}},
-      'field_firstname[0][value]'=> 'Testy',
+      'field_school' => {'0' => {'value' => 'Ruby School'}},
+      'field_firstname[0][value]'=> 'Tested',
+      'field_lastname[0][value]'=> 'Admin',
       'group-emergency-contact' => {
         'field_emergency_contact_fname' => {'0' => {'value' => 'Test Emg. Fname'}},
         'field_emergency_contact_lname' => {'0' => {'value' => 'Test Emg. Lname'}},
