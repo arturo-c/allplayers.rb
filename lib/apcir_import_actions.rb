@@ -475,12 +475,17 @@ module ImportActions
   def import_user(row, description = 'User')
     more_params = {}
 
-    begin
-      birthdate = Date.parse(row['birthdate'])
-    rescue ArgumentError => err
-      @logger.error(get_row_count.to_s) {'Invalid Birth Date.  Failed to import ' + description}
-      @logger.error(get_row_count.to_s) {err.message.to_s}
+    if row['birthdate'].nil?
+      @logger.error(get_row_count.to_s) {'No Birth Date Listed.  Failed to import ' + description + '.'}
       return {}
+    else
+      begin
+        birthdate = Date.parse(row['birthdate'])
+      rescue ArgumentError => err
+        @logger.error(get_row_count.to_s) {'Invalid Birth Date.  Failed to import ' + description + '.'}
+        @logger.error(get_row_count.to_s) {err.message.to_s}
+        return {}
+      end
     end
 
     ('1'..'2').each { |i|
