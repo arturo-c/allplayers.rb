@@ -199,12 +199,11 @@ module ImportActions
     return nil
   end
 
-  def verify_children(row, description = 'User')
+  def verify_children(row, description = 'User', matched_uid = nil)
     # Fields to match
     import = row.reject {|k,v| k != 'first_name' && k != 'last_name'}
     prefixes = ['parent_1_', 'parent_2_']
     matched_parents = []
-    matched_uid = nil
     ret = nil
     prefixes.each {|prefix|
       parent_description = prefix.split('_').join(' ').strip.capitalize
@@ -556,6 +555,7 @@ module ImportActions
 
       if !uid.nil?
         @logger.warn(get_row_count.to_s) {description + ' already exists: ' + row['email_address'] + ' at UID: ' + uid + '. No profile fields will be imported.  Participant will still be added to groups.'}
+        self.verify_children(row, description, uid)
         return {'mail' => row['email_address'], 'uid' => uid }
       else
         if !row['email_address'].valid_email_address?
