@@ -8,6 +8,7 @@ require 'apci_field_mapping'
 require 'active_support/core_ext/time/conversions.rb'
 require 'thread'
 require 'logger'
+require 'resolv'
 
 # Stop EOF errors in Highline
 HighLine.track_eof = false
@@ -74,6 +75,14 @@ end
 class String
   def valid_email_address?
     return !self.match(/^[a-zA-Z0-9_\-\.\+\^!#\$%&*+\/\=\?\`\|\{\}~\']+@((?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.?)+|(\[([0-9]{1,3}(\.[0-9]{1,3}){3}|[0-9a-fA-F]{1,4}(\:[0-9a-fA-F]{1,4}){7})\]))$/).nil?
+  end
+  def active_email_domain?
+      domain = self.match(/\@(.+)/)[1]
+      Resolv::DNS.open do |dns|
+          @mx = dns.getresources(domain, Resolv::DNS::Resource::IN::MX)
+          @a = dns.getresources(domain, Resolv::DNS::Resource::IN::A)
+      end
+      @mx.size > 0 || @a.size > 0
   end
 end
 
@@ -548,9 +557,14 @@ module ImportActions
       if !uid.nil?
         @logger.warn(get_row_count.to_s) {description + ' already exists: ' + row['email_address'] + ' at UID: ' + uid + '. No profile fields will be imported.  Participant will still be added to groups.'}
         return {'mail' => row['email_address'], 'uid' => uid }
-      elsif !row['email_address'].valid_email_address?
-        @logger.error(get_row_count.to_s) {description + ' has an invalid email address: ' + row['email_address'] + '. Skipping.'}
-        return {}
+      else
+        if !row['email_address'].valid_email_address?
+          @logger.error(get_row_count.to_s) {description + ' has an invalid email address: ' + row['email_address'] + '. Skipping.'}
+          return {}
+        end
+        if !row['email_address'].active_email_domain?
+          @logger.error(get_row_count.to_s) {description + ' has an email address with an invalid or inactive domain: ' + row['email_address'] + '.'}
+        end
       end
     end
 
