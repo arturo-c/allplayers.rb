@@ -302,6 +302,38 @@ class TestApcirClient < Test::Unit::TestCase
     # @TODO Really should test birthdate, gender, etc.
   end
 
+  def test_user_create_child_allplayers_dot_net
+    # @TODO - Create the parent, this is glenn...
+    parent_1_uid = 10995
+    more_params = {
+      :email_alternative => {:value => 1}, # Allplayers.net email
+      }
+    random_first = (0...8).map{65.+(rand(25)).chr}.join
+    # Make an 11 year old.
+    birthday = Date.today - (365 * 11)
+    response = $apci_session.user_create(
+      nil, # No email address
+      random_first,
+      'FakeLast',
+      'Male',
+      birthday,
+      more_params
+    )
+    assert_not_nil(response['uid'])
+
+    #Assign parent.
+    parenting_response = $apci_session.user_parent_add(response['uid'], parent_1_uid)
+    user = $apci_session.user_get(response['uid'])
+    # Check firstname.
+    assert_equal(random_first, user['field_firstname'])
+    # Check birthday.
+    assert_equal(birthday.to_s, Date.parse(user['field_birth_date']).to_s)
+    # Check parent.
+    parent = $apci_session.user_get(parent_1_uid)
+    assert(user['field_parents'].to_s.include? parent['realname'])
+    # @TODO Really should test birthdate, gender, etc.
+  end
+
   def test_node_get
     # node id 6 should exist, fragile...
     node = $apci_session.node_get(6)
