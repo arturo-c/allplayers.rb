@@ -117,6 +117,7 @@ class ApciFormatter < Logger::Formatter
     else
       say message_color
     end
+    message.gsub!('"', "'")
     Format % [severity[0..0], format_datetime(time), $$, severity, program_name,
         msg2str(message)]
   end
@@ -563,7 +564,7 @@ module ImportActions
           return {}
         end
         if !row['email_address'].active_email_domain?
-          @logger.error(get_row_count.to_s) {description + ' has an email address with an invalid or inactive domain: ' + row['email_address'] + '.'}
+          @logger.error(get_row_count.to_s) {description + ' has an email address with an invalid or inactive domain: ' + row['email_address']}
         end
       end
     end
