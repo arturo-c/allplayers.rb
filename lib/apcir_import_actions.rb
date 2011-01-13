@@ -340,11 +340,10 @@ module ImportActions
         sheet.shift
         increment_row_count
       end
+      @logger.debug(get_row_count.to_s) {'Skipped ' + skipped_rows.to_s + ' rows'}
     end
 
-    skipped_rows = get_row_count
-    row_count = skipped_rows
-    @logger.debug(get_row_count.to_s) {'Skipped ' + skipped_rows.to_s + ' rows'}
+    row_count = get_row_count
 
     # TODO - Detect sheet type / sanity check by searching column_defs
     if (name == 'Participant Information')
