@@ -125,6 +125,7 @@ end
 
 # Functions to aid importing any type of spreadsheet to Allplayers.com.
 module ImportActions
+  @@sheet_mutex = Mutex.new
   @@stats_mutex = Mutex.new
   @@user_mutex = Mutex.new
   @@email_mutexes = {}
@@ -342,6 +343,7 @@ module ImportActions
     end
 
     skipped_rows = get_row_count
+    row_count = skipped_rows
     @logger.debug(get_row_count.to_s) {'Skipped ' + skipped_rows.to_s + ' rows'}
 
     # TODO - Detect sheet type / sanity check by searching column_defs
@@ -352,10 +354,21 @@ module ImportActions
       threads = []
       # Set default thread_count to 15, accept global to change it.
       thread_count = $thread_count.nil? ? 15 : $thread_count
-      stripes = sheet.stripe_to_key_value(thread_count)
-      for i in 0..(stripes.length-1) do
+
+      for i in 0..thread_count do
         threads << Thread.new {
-          stripes[i].each {|row| self.import_mixed_user(self.prepare_row(row[1], column_defs, row[0] + skipped_rows))}
+           until sheet.nil?
+             row = nil
+             @@sheet_mutex.synchronize do
+               row = sheet.shift
+               row_count+=1
+             end
+             unless row.nil?
+               self.import_mixed_user(self.prepare_row(row, column_defs, row_count))
+             else
+               break
+             end
+           end
         }
       end
       threads.each_index {|i|
