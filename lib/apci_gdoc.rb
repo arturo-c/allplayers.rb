@@ -79,4 +79,16 @@ class ApciGoogSS
       end
     end
   end
+
+  # Traverse worksheet xml feed looking for cells and save them into a 2d array.
+  def worksheet_feed_to_a(xml)
+    worksheet = []
+    xml.elements.each('entry/gs:cell') do | cell |
+      row = cell.attributes['row'].to_i - 1
+      col = cell.attributes['col'].to_i - 1
+      worksheet[row] = [] if worksheet[row].nil?
+      worksheet[row][col] = cell.text
+    end
+    worksheet
+  end
 end

@@ -24,7 +24,7 @@
 #  ENV['APCI_REST_TEST_PASS']
 #
 
-# Change path to the lib directory.
+# Add path to the lib directory.
 $:.unshift File.join(File.dirname(__FILE__),'..','lib')
 
 require 'apci_rest'
