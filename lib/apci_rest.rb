@@ -165,6 +165,14 @@ class ApcirClient
     get 'user/' + uid.to_s()
   end
 
+  def user_get_profile(uid)
+    profiles = $apci_session.node_list({
+      :uid => uid.to_s,
+      :type => 'profile',
+    })
+    node_get(profiles['item'].first['nid'])
+  end
+
   def user_list(filters)
     #[GET] {endpoint}/user?fieldname=value
     get 'user', filters

@@ -34,6 +34,7 @@ require 'getoptlong'
 require 'rdoc/usage'
 require 'logger'
 require 'etc'
+require 'date'
 
 class TestApcirClient < Test::Unit::TestCase
 
@@ -143,13 +144,18 @@ class TestApcirClient < Test::Unit::TestCase
     user = $apci_session.user_get(response['uid'])
     # Check email.
     assert_equal(random_first + '@example.com', user['mail'])
+    # Check calculated username.
+    assert_equal(random_first + ' FakeLast', user['apci_user_username'])
+
+    # Check profile fields.
+    profile = $apci_session.user_get_profile(response['uid'])
     # Check name.
-    assert_equal(random_first, user['field_firstname'])
-    assert_equal('FakeLast', user['field_lastname'])
+    assert_equal(random_first, profile['field_firstname']['item'].first['value'])
+    assert_equal('FakeLast', profile['field_lastname']['item'].first['value'])
     # Check birthday.
-    assert_equal(birthday.to_s, Date.parse(user['field_birth_date']).to_s)
+    assert_equal(birthday.to_s, Date.parse(profile['field_birth_date']['item'].first['value']).to_s)
     # Check gender (1 = Male, 2 = Female) <= Lame
-    assert_equal('1', user['field_user_gender'])
+    assert_equal('1', profile['field_user_gender']['item'].first['value'])
   end
 
   def test_user_create_full
@@ -202,24 +208,28 @@ class TestApcirClient < Test::Unit::TestCase
 
     # Check email.
     assert_equal(random_first + '@example.com', user['mail'])
-    # Check name.
-    assert_equal(random_first, user['field_firstname'])
-    assert_equal('FakeLast', user['field_lastname'])
-    # Check birthday.
-    assert_equal(birthday.to_s, Date.parse(user['field_birth_date']).to_s)
-    # Check gender (1 = Male, 2 = Female) <= Lame
-    assert_equal('1', user['field_user_gender'])
+    # Check calculated username.
+    assert_equal(random_first + ' FakeLast', user['apci_user_username'])
 
-    assert_equal(more_params['field_hat_size']['0']['value'], user['field_hat_size'])
-    assert_equal(more_params['field_pant_size']['0']['value'], user['field_pant_size'])
-    assert_equal(more_params['field_phone']['0']['value'], user['field_phone'])
-    assert_equal(more_params['field_organization']['0']['value'], user['field_organization'])
-    assert_equal(more_params['field_school']['0']['value'], user['field_school'])
-    assert_equal(more_params['field_school_grade']['0']['value'], user['field_school_grade'])
-    assert_equal(more_params['field_emergency_contact_fname']['0']['value'], user['field_emergency_contact_fname'])
-    assert_equal(more_params['field_emergency_contact_lname']['0']['value'], user['field_emergency_contact_lname'])
-    assert_equal(more_params['field_emergency_contact_phone']['0']['value'], user['field_emergency_contact_phone'])
-    # @TODO Really should test profile fields, gender, etc.
+    # Check profile fields.
+    profile = $apci_session.user_get_profile(response['uid'])
+    # Check name.
+    assert_equal(random_first, profile['field_firstname']['item'].first['value'])
+    assert_equal('FakeLast', profile['field_lastname']['item'].first['value'])
+    # Check birthday.
+    assert_equal(birthday.to_s, Date.parse(profile['field_birth_date']['item'].first['value']).to_s)
+    # Check gender (1 = Male, 2 = Female) <= Lame
+    assert_equal('1', profile['field_user_gender']['item'].first['value'])
+
+    assert_equal(more_params['field_hat_size']['0']['value'], profile['field_hat_size']['item'].first['value'])
+    assert_equal(more_params['field_pant_size']['0']['value'], profile['field_pant_size']['item'].first['value'])
+    assert_equal(more_params['field_phone']['0']['value'], profile['field_phone']['item'].first['value'])
+    assert_equal(more_params['field_organization']['0']['value'], profile['field_organization']['item'].first['value'])
+    assert_equal(more_params['field_school']['0']['value'], profile['field_school']['item'].first['value'])
+    assert_equal(more_params['field_school_grade']['0']['value'], profile['field_school_grade']['item'].first['value'])
+    assert_equal(more_params['field_emergency_contact_fname']['0']['value'], profile['field_emergency_contact_fname']['item'].first['value'])
+    assert_equal(more_params['field_emergency_contact_lname']['0']['value'], profile['field_emergency_contact_lname']['item'].first['value'])
+    assert_equal(more_params['field_emergency_contact_phone']['0']['value'], profile['field_emergency_contact_phone']['item'].first['value'])
   end
 
   def test_user_profile_update
@@ -292,14 +302,21 @@ class TestApcirClient < Test::Unit::TestCase
     #Assign parent.
     parenting_response = $apci_session.user_parent_add(response['uid'], parent_1_uid)
     user = $apci_session.user_get(response['uid'])
-    # Check firstname.
-    assert_equal(random_first, user['field_firstname'])
-    # Check birthday.
-    assert_equal(birthday.to_s, Date.parse(user['field_birth_date']).to_s)
+
     # Check parent.
-    parent = $apci_session.user_get(parent_1_uid)
-    assert(user['field_parents'].to_s.include? parent['realname'])
-    # @TODO Really should test birthdate, gender, etc.
+    profile = $apci_session.user_get_profile(response['uid'])
+    assert(profile['field_parents'].to_s.include?(parent_1_uid.to_s))
+
+    # Check calculated username is only first.
+    assert_equal(random_first, user['apci_user_username'])
+
+    # Check name.
+    assert_equal(random_first, profile['field_firstname']['item'].first['value'])
+    assert_equal('FakeLast', profile['field_lastname']['item'].first['value'])
+    # Check birthday.
+    assert_equal(birthday.to_s, Date.parse(profile['field_birth_date']['item'].first['value']).to_s)
+    # Check gender (1 = Male, 2 = Female) <= Lame
+    assert_equal('1', profile['field_user_gender']['item'].first['value'])
   end
 
   def test_user_create_child_allplayers_dot_net
@@ -324,14 +341,21 @@ class TestApcirClient < Test::Unit::TestCase
     #Assign parent.
     parenting_response = $apci_session.user_parent_add(response['uid'], parent_1_uid)
     user = $apci_session.user_get(response['uid'])
-    # Check firstname.
-    assert_equal(random_first, user['field_firstname'])
-    # Check birthday.
-    assert_equal(birthday.to_s, Date.parse(user['field_birth_date']).to_s)
+
     # Check parent.
-    parent = $apci_session.user_get(parent_1_uid)
-    assert(user['field_parents'].to_s.include? parent['realname'])
-    # @TODO Really should test birthdate, gender, etc.
+    profile = $apci_session.user_get_profile(response['uid'])
+    assert(profile['field_parents'].to_s.include?(parent_1_uid.to_s))
+
+    # Check calculated username is only first.
+    assert_equal(random_first, user['apci_user_username'])
+
+    # Check name.
+    assert_equal(random_first, profile['field_firstname']['item'].first['value'])
+    assert_equal('FakeLast', profile['field_lastname']['item'].first['value'])
+    # Check birthday.
+    assert_equal(birthday.to_s, Date.parse(profile['field_birth_date']['item'].first['value']).to_s)
+    # Check gender (1 = Male, 2 = Female) <= Lame
+    assert_equal('1', profile['field_user_gender']['item'].first['value'])
   end
 
   def test_node_get

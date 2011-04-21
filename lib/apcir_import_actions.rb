@@ -9,6 +9,7 @@ require 'active_support/core_ext/time/conversions.rb'
 require 'thread'
 require 'logger'
 require 'resolv'
+require 'date'
 
 # Stop EOF errors in Highline
 HighLine.track_eof = false
