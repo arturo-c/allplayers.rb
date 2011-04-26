@@ -53,8 +53,10 @@ class ApcirClient
     get 'node/' + nid.to_s()
   end
 
-  def node_list(filters)
-    #[GET] {endpoint}/node (?fields[]=fieldname&nid=value)
+  def node_list(parameters, fields = nil)
+    filters = {:parameters => parameters}
+    filters[:fields] = fields unless fields.nil?
+    #[GET] {endpoint}/node?fields=nid,title,body&parameters[uid]=1
     get 'node', filters
   end
 
@@ -73,7 +75,7 @@ class ApcirClient
     }.merge(more_params)
 
     #[POST] {endpoint}/node + DATA (form_state for node_form)
-    post 'node', required_params.merge(more_params)
+    post 'node', {:node => required_params.merge(more_params)}
   ensure
     # Debugging...
     #puts required_params.merge(more_params).to_yaml
@@ -81,7 +83,7 @@ class ApcirClient
 
   def node_update(nid, params)
     #[PUT] {endpoint}/node + DATA (form_state for node_form)
-    put 'node/' + nid.to_s, params
+    put 'node/' + nid.to_s, {:node => params}
   ensure
     # Debugging...
     #puts required_params.merge(more_params).to_yaml

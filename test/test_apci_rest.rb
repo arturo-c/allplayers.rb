@@ -392,7 +392,7 @@ class TestApcirClient < Test::Unit::TestCase
     body = body + ' Testing update, blah, blah, blah.'
     more_params = { :body => body }
     update_response = $apci_session.node_update(response['nid'], more_params)
-    assert_equal(node['nid'], update_response.first)
+    assert_equal(node['nid'], update_response['nid'])
     updated_node = $apci_session.node_get(response['nid'])
     assert_equal(node['nid'], updated_node['nid'])
     assert_equal(random_title, updated_node['title'])
