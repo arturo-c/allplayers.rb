@@ -4,6 +4,7 @@ require 'restclient/response'
 require 'xmlsimple'
 require 'addressable/uri'
 require 'logger'
+require 'active_support/base64'
 
 # duck-punch some pretty error messages into RestClient library exceptions.
 RestClient::STATUSES.each_pair do |code, message|
@@ -46,6 +47,26 @@ class ApcirClient
     ensure
       @session_cookies = {} # Delete the cookies.
     end
+  end
+
+  def file_get(fid, file_contents = true)
+    #[GET] {endpoint}/file/{fid}
+    file = get 'file/' + fid.to_s(), {:file_contents => file_contents}
+    if file_contents
+      file['contents'] = ActiveSupport::Base64.decode64(file['file'])
+    end
+    file
+  end
+
+  def file_create(file)
+    #[GET] {endpoint}/file/ + DATA
+    file[:file] = ActiveSupport::Base64.encode64s(file[:file])
+    post 'file', {:file => file}
+  end
+
+  def node_files_get(nid, file_contents = true)
+    #[GET] {endpoint}/file/nodeFiles + PARAMS
+    get 'file/nodeFiles', {:nid => nid.to_s, :file_contents => file_contents}
   end
 
   def node_get(nid)

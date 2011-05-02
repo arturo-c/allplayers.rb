@@ -27,6 +27,7 @@
 # Add path to the lib directory.
 $:.unshift File.join(File.dirname(__FILE__),'..','lib')
 
+require 'open-uri'
 require 'apci_rest'
 require 'apci_field_mapping'
 require 'test/unit'
@@ -547,6 +548,36 @@ class TestApcirClient < Test::Unit::TestCase
     term = $apci_session.taxonomy_term_list({:name => 'Other'})
     assert_equal("Other", term['item'].first['name'])
   end
+
+  def test_file_get
+    fid = 195408
+    file = $apci_session.file_get(fid, true)
+
+    assert_equal(fid, file['fid'].to_i)
+    assert_not_nil(file['contents'])
+
+    web_file = open('http://' + $apci_rest_test_host + '/sites/default/files/file-upload/10995/patches.txt') {|f| f.read }
+    assert_equal(file['contents'], web_file)
+  end
+
+  def test_file_create
+    web_file = open('http://' + $apci_rest_test_host + '/sites/default/files/file-upload/10995/patches.txt') {|f| f.read }
+    file_data = {:filename => 'patches.txt', :file => web_file}
+    response = $apci_session.file_create(file_data)
+    assert_not_nil(response['fid'])
+
+    file = $apci_session.file_get(response['fid'], true)
+    assert_not_nil(response['fid'])
+    assert_equal(response['fid'], file['fid'])
+    assert_not_nil(file['contents'])
+    assert_equal(file['contents'], web_file)
+  end
+
+  #def test_node_files_get
+  #  nid = 852788
+  #  files = $apci_session.node_files_get(nid)
+  #  puts files.to_yaml
+  #end
 
   #def test_login
     #if $login_response
