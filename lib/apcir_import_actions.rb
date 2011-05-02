@@ -352,8 +352,8 @@ module ImportActions
       @logger.info(get_row_count.to_s) {"Importing Participants, Parents and Group assignments\n"}
       # Multi-thread
       threads = []
-      # Set default thread_count to 15, accept global to change it.
-      thread_count = $thread_count.nil? ? 15 : $thread_count
+      # Set default thread_count to 7, accept global to change it.
+      thread_count = $thread_count.nil? ? 7 : $thread_count
 
       for i in 0..thread_count do
         threads << Thread.new {
