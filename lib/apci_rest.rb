@@ -32,7 +32,7 @@ class ApcirClient
 
   def login(name, pass)
     begin
-      post 'user/login' , {:name => name, :pass => pass}
+      post 'user/login' , {:username => name, :password => pass}
     rescue RestClient::Exception => e
       puts "Session authentication error."
       raise #Re-raise the error.
@@ -76,17 +76,11 @@ class ApcirClient
 
     #[POST] {endpoint}/node + DATA (form_state for node_form)
     post 'node', {:node => required_params.merge(more_params)}
-  ensure
-    # Debugging...
-    #puts required_params.merge(more_params).to_yaml
   end
 
   def node_update(nid, params)
     #[PUT] {endpoint}/node + DATA (form_state for node_form)
     put 'node/' + nid.to_s, {:node => params}
-  ensure
-    # Debugging...
-    #puts required_params.merge(more_params).to_yaml
   end
 
   def group_create(title, description, location, categories, type, more_params = {})
@@ -154,12 +148,12 @@ class ApcirClient
 
   def taxonomy_vocabulary_list(filters)
     #[GET] {endpoint}/vocabulary (?fields[]=fieldname&vid=value)
-    get 'vocabulary', filters
+    get 'vocabulary', {:parameters => filters}
   end
 
   def taxonomy_term_list(filters)
     #[GET] {endpoint}/term (?fields[]=fieldname&tid=value)
-    get 'term' , filters
+    get 'term' , {:parameters => filters}
   end
 
   def user_get(uid)
@@ -175,8 +169,10 @@ class ApcirClient
     node_get(profiles['item'].first['nid'])
   end
 
-  def user_list(filters)
-    #[GET] {endpoint}/user?fieldname=value
+  def user_list(parameters, fields = nil)
+    filters = {:parameters => parameters}
+    filters[:fields] = fields unless fields.nil?
+    #[GET] {endpoint}/user?fields=uid,name,mail&parameters[uid]=1
     get 'user', filters
   end
 
@@ -215,7 +211,7 @@ class ApcirClient
     }.merge(more_params)
 
     #[POST] {endpoint}/user + DATA (form_state for user_register form
-    response = post 'user', required_params.merge(more_params)
+    response = post 'user', {:account => required_params.merge(more_params)}
   ensure
     # APCIHACK - Load up user to build cache.
     self.user_get(response['uid']) unless response.nil?

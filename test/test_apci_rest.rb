@@ -138,10 +138,12 @@ class TestApcirClient < Test::Unit::TestCase
       'Male',
       birthday
     )
+
     # Check user create response.
     assert_not_nil(response['uid'])
     # Get the newly created user.
     user = $apci_session.user_get(response['uid'])
+
     # Check email.
     assert_equal(random_first + '@example.com', user['mail'])
     # Check calculated username.
