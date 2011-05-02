@@ -36,7 +36,7 @@ class Array
   def split_first(pattern)
     arr = []
     self.each do | item |
-      arr.push(item.split(pattern)[0])
+      arr.push(item.split(pattern)[0].strip)
     end
     arr
   end
