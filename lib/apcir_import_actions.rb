@@ -341,7 +341,7 @@ module ImportActions
         sheet.shift
         increment_row_count
       end
-      @logger.debug(get_row_count.to_s) {'Skipped ' + skipped_rows.to_s + ' rows'}
+      @logger.debug(get_row_count.to_s) {'Skipped ' + $skip_rows.to_s + ' rows'}
     end
 
     row_count = get_row_count
