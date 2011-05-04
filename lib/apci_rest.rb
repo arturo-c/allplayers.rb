@@ -59,7 +59,7 @@ class ApcirClient
   end
 
   def file_create(file)
-    #[GET] {endpoint}/file/ + DATA
+    #[POST] {endpoint}/file/ + DATA
     file[:file] = ActiveSupport::Base64.encode64s(file[:file])
     post 'file', {:file => file}
   end
