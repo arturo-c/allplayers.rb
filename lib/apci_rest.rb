@@ -61,7 +61,6 @@ class ApcirClient
   def file_list(parameters, fields = nil)
     filters = {:parameters => parameters}
     filters[:fields] = fields unless fields.nil?
-    #[GET] {endpoint}/node?fields=nid,title,body&parameters[uid]=1
     get 'file', filters
   end
   
