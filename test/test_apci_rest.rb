@@ -171,7 +171,6 @@ class TestApcirClient < Test::Unit::TestCase
       'field_shoe_size' => {'0' => {'value' => apci_field_shoe_size('Adult - Male - 5.5')}},
       'field_height' => {'0' => {'value' => apci_field_height("6' 3\"")}},
       'field_phone' => {'0' => {'value' => '5555554321'}},
-      'field_organization' => {'0' => {'value' => 'Awesome Test Company'}},
       'field_school' => {'0' => {'value' => 'The REST School'}},
       'field_school_grade' => {'0' => {'value' => '10'}},
       'field_emergency_contact_fname' => {'0' => {'value' => 'Test'}},
@@ -227,7 +226,6 @@ class TestApcirClient < Test::Unit::TestCase
     assert_equal(more_params['field_hat_size']['0']['value'], profile['field_hat_size']['item'].first['value'])
     assert_equal(more_params['field_pant_size']['0']['value'], profile['field_pant_size']['item'].first['value'])
     assert_equal(more_params['field_phone']['0']['value'], profile['field_phone']['item'].first['value'])
-    assert_equal(more_params['field_organization']['0']['value'], profile['field_organization']['item'].first['value'])
     assert_equal(more_params['field_school']['0']['value'], profile['field_school']['item'].first['value'])
     assert_equal(more_params['field_school_grade']['0']['value'], profile['field_school_grade']['item'].first['value'])
     assert_equal(more_params['field_emergency_contact_fname']['0']['value'], profile['field_emergency_contact_fname']['item'].first['value'])
@@ -548,9 +546,14 @@ class TestApcirClient < Test::Unit::TestCase
     term = $apci_session.taxonomy_term_list({:name => 'Other'})
     assert_equal("Other", term['item'].first['name'])
   end
-
+  
+  def test_file_list
+    filelist = $apci_session.file_list({:filemime => 'image/jpeg'})
+    filelist['item'].last['fid']
+  end
+  
   def test_file_get
-    fid = 881 # Boxing gloves
+    fid = test_file_list.to_i
     file = $apci_session.file_get(fid, true)
 
     assert_equal(fid, file['fid'].to_i)
@@ -562,7 +565,7 @@ class TestApcirClient < Test::Unit::TestCase
 
   def test_file_create
     remote_file = open('http://www.google.com/images/logos/ps_logo2.png') {|f| f.read }
-    file_data = {:filename => 'patches.txt', :file => remote_file}
+    file_data = {:filename => 'googlelogo.png', :file => remote_file}
     response = $apci_session.file_create(file_data)
     assert_not_nil(response['fid'])
 

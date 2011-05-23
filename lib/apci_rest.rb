@@ -57,7 +57,14 @@ class ApcirClient
     end
     file
   end
-
+  
+  def file_list(parameters, fields = nil)
+    filters = {:parameters => parameters}
+    filters[:fields] = fields unless fields.nil?
+    #[GET] {endpoint}/node?fields=nid,title,body&parameters[uid]=1
+    get 'file', filters
+  end
+  
   def file_create(file)
     #[POST] {endpoint}/file/ + DATA
     file[:file] = ActiveSupport::Base64.encode64s(file[:file])
