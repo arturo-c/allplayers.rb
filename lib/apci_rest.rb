@@ -110,7 +110,7 @@ class ApcirClient
     put 'node/' + nid.to_s, {:node => params}
   end
 
-  def group_create(title, description, location, categories, type, more_params = {})
+  def group_create(title, description, categories, location, type, more_params = {})
 
     # Get appropriate Taxonomy term.
     # @TODO - Handle hierachical taxonomy.
@@ -127,7 +127,7 @@ class ApcirClient
 
     required_params = {
       :og_description => description,
-      :locations => {:'0' => location},
+      :field_location => {:'0' => location},
       :taxonomy => vocabulary,
       :spaces_preset_og => type.downcase,
     }
