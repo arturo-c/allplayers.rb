@@ -17,6 +17,39 @@ RestClient::STATUSES.each_pair do |code, message|
   }
 end
 
+# duck-punch RestClient to support custom timeouts.
+module RestClient
+
+  def self.get(url, headers={}, &block)
+    Request.execute(:method => :get, :url => url, :headers => headers, :timeout => @timeout, :open_timeout => @open_timeout, &block)
+  end
+
+  def self.post(url, payload, headers={}, &block)
+    Request.execute(:method => :post, :url => url, :payload => payload, :headers => headers, :timeout => @timeout, :open_timeout => @open_timeout, &block)
+  end
+
+  def self.put(url, payload, headers={}, &block)
+    Request.execute(:method => :put, :url => url, :payload => payload, :headers => headers, :timeout => @timeout, :open_timeout => @open_timeout, &block)
+  end
+
+  def self.delete(url, headers={}, &block)
+    Request.execute(:method => :delete, :url => url, :headers => headers, :timeout => @timeout, :open_timeout => @open_timeout, &block)
+  end
+
+  def self.head(url, headers={}, &block)
+    Request.execute(:method => :head, :url => url, :headers => headers, :timeout => @timeout, :open_timeout => @open_timeout, &block)
+  end
+
+  def self.options(url, headers={}, &block)
+    Request.execute(:method => :options, :url => url, :headers => headers, :timeout => @timeout, :open_timeout => @open_timeout, &block)
+  end
+
+  class << self
+    attr_accessor :timeout
+    attr_accessor :open_timeout
+  end
+end
+
 class ApcirClient
   attr_accessor :logger
 
@@ -288,6 +321,7 @@ class ApcirClient
     post 'user/' + child_uid.to_s() + '/addparent/' + parent_uid.to_s()
   end
 
+  # @TODO - Move all requests to one wrapper to reduce code duplication.
   protected
   def get(path, query = {}, headers = {})
     # @TODO - cache here (HTTP Headers?)
@@ -297,6 +331,8 @@ class ApcirClient
       uri.query_values = query unless query.empty?
       headers.merge!({:cookies => @session_cookies}) unless @session_cookies.empty?
       RestClient.log = @log
+      RestClient.open_timeout = 600
+      RestClient.timeout = 600
       response = RestClient.get(uri.to_s, headers)
       # @TODO - Review this logic - Update the cookies.
       @session_cookies.merge!(response.cookies) unless response.cookies.empty?
@@ -314,6 +350,8 @@ class ApcirClient
       uri = @base_uri.join(path)
       headers.merge!({:cookies => @session_cookies}) unless @session_cookies.empty?
       RestClient.log = @log
+      RestClient.open_timeout = 600
+      RestClient.timeout = 600
       response = RestClient.post(uri.to_s, params, headers)
       # @TODO - Review this logic - Update the cookies.
       @session_cookies.merge!(response.cookies) unless response.cookies.empty?
@@ -331,6 +369,8 @@ class ApcirClient
       uri = @base_uri.join(path)
       headers.merge!({:cookies => @session_cookies}) unless @session_cookies.empty?
       RestClient.log = @log
+      RestClient.open_timeout = 600
+      RestClient.timeout = 600
       response = RestClient.put(uri.to_s, params, headers)
       # @TODO - Review this logic - Update the cookies.
       @session_cookies.merge!(response.cookies) unless response.cookies.empty?
