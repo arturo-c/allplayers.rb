@@ -615,23 +615,24 @@ module ImportActions
     more_params['field_weight'] = {:'0' => {:value => row['weight']}} if row.has_key?('weight')
     more_params['field_organization'] = {:'0' => {:value => row['organization']}} if row.has_key?('organization')
 
-    location = {}
-    location['street'] =  row['primary_address_1'] if row.has_key?('primary_address_1')
-    location['additional'] =  row['primary_address_2'] if row.has_key?('primary_address_2')
-    location['city'] =  row['primary_city'] if row.has_key?('primary_city')
-    #location['province'] =  row['primary_state'] if row.has_key?('primary_state')
-    location['postal_code'] =  row['primary_zip'] if row.has_key?('primary_zip')
-    location['country'] =  row['primary_country'] if row.has_key?('primary_country')
-    more_params['locations'] = {:'0' => location} unless location.empty?
+    field_address = {}
+    field_address['street'] =  row['primary_address_1'] if row.has_key?('primary_address_1')
+    field_address['additional'] =  row['primary_address_2'] if row.has_key?('primary_address_2')
+    field_address['city'] =  row['primary_city'] if row.has_key?('primary_city')
+    field_address['province'] =  row['primary_state'] if row.has_key?('primary_state')
+    field_address['postal_code'] =  row['primary_zip'] if row.has_key?('primary_zip')
+    field_address['country'] =  row['primary_country'] if row.has_key?('primary_country')
+    more_params['field_address'] = {:'0' => field_address} unless field_address.empty?
 
-    emergency_contact_location = {}
-    emergency_contact_location['street'] =  row['emergency_contact_address_1'] if row.has_key?('emergency_contact_address_1')
-    emergency_contact_location['additional'] =  row['emergency_contact_address_2'] if row.has_key?('emergency_contact_address_2')
-    emergency_contact_location['city'] =  row['emergency_contact_city'] if row.has_key?('emergency_contact_city')
-    #emergency_contact_location['province'] =  row['emergency_contact_state'] if row.has_key?('emergency_contact_state')
-    emergency_contact_location['postal_code'] =  row['emergency_contact_zip'] if row.has_key?('emergency_contact_zip')
-    emergency_contact_location['country'] =  row['emergency_contact_country'] if row.has_key?('emergency_contact_country')
-    more_params['field_emergency_contact'] = {:'0' => emergency_contact_location} unless emergency_contact_location.empty?
+    # TODO This doesn't look very DRY, see above.
+    field_emergency_contact = {}
+    field_emergency_contact['street'] =  row['emergency_contact_address_1'] if row.has_key?('emergency_contact_address_1')
+    field_emergency_contact['additional'] =  row['emergency_contact_address_2'] if row.has_key?('emergency_contact_address_2')
+    field_emergency_contact['city'] =  row['emergency_contact_city'] if row.has_key?('emergency_contact_city')
+    field_emergency_contact['province'] =  row['emergency_contact_state'] if row.has_key?('emergency_contact_state')
+    field_emergency_contact['postal_code'] =  row['emergency_contact_zip'] if row.has_key?('emergency_contact_zip')
+    field_emergency_contact['country'] =  row['emergency_contact_country'] if row.has_key?('emergency_contact_country')
+    more_params['field_emergency_contact'] = {:'0' => field_emergency_contact} unless field_emergency_contact.empty?
 
     response = {}
 
