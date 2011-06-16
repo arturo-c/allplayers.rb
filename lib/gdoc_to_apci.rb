@@ -42,8 +42,8 @@ def google_docs_import
   puts "Listing Spreadsheets...\n"
   spreadsheets = g.list_spreadsheets
   choices = {':quit' => ':quit'}
-  spreadsheets['entry'].each do |spreadsheet|
-    choices.merge!({spreadsheet['title'] => spreadsheet})
+  spreadsheets.elements.each('entry') do |spreadsheet|
+    choices.merge!({spreadsheet.elements['title'].text => spreadsheet})
   end
 
   loop do
@@ -54,24 +54,17 @@ def google_docs_import
 
     # Worksheet import menu.
     @apci_session.logger.info('Google Data') {"Fetching '#{cmd}'..."}
-    @apci_session.logger.debug('Google Data') {'Spreadsheet source: ' + choices[cmd]['content']['src']}
-    worksheets = g.get_content(choices[cmd]['content']['src'])
-
-    # Get spreadsheet key. TODO - This looks fragile.
-    key = worksheets['id'].split('/')[5]
+    @apci_session.logger.debug('Google Data') {'Spreadsheet source: ' + choices[cmd].elements['content'].attributes['src']}
+    worksheets = g.get_content(choices[cmd].elements['content'].attributes['src'])
 
     w_ops = {
       ':quit' => ':quit',
-      ':all' => {'key' => key},
+      ':all' => worksheets,
     }
     w_choices = {}
-    # LAME - needed for CSV tab #.
-    i = 0
-    worksheets['entry'].each do | worksheet |
-      w_choices.merge!({worksheet['title'] => worksheet})
-      w_choices[worksheet['title']].merge!({'order' => i})
-      w_choices[worksheet['title']].merge!({'key' => key})
-      i = i + 1
+    worksheets.elements.each('entry/title/..') do |entry|
+      cells_uri = entry.elements["link[@rel='http://schemas.google.com/spreadsheets/2006#cellsfeed')]"].attributes['href']
+      w_choices.merge!({entry.elements['title'].text => cells_uri})
     end
     loop do
       cmd = ask("Choose worksheet to import:  ", w_choices.merge(w_ops).keys.sort) do |q|
@@ -82,17 +75,19 @@ def google_docs_import
         break
       when ':all'
         say('Importing all sheets.')
-        w_choices.each do | worksheet |
-          @apci_session.logger.debug('Google Data') {'Worksheet key: ' + worksheet['key']}
-          sheet = g.get_from_csv(worksheet['key'], worksheet['order'])
-          @apci_session.import_sheet(sheet, worksheet['title'])
+        w_choices.each do |worksheet_info|
+          @apci_session.logger.debug('Google Data') {'Worksheet uri: ' + worksheet_info[1]}
+          cells_xml = g.get_content(worksheet_info[1])
+          worksheet = worksheet_feed_to_a(cells_xml)
+          @apci_session.import_sheet(worksheet, worksheet_info[0])
         end
         break
       else
         say("Importing \"#{cmd}\"...")
-        @apci_session.logger.debug('Google Data') {'Worksheet key: ' + w_choices[cmd]['key']}
-        sheet = g.get_from_csv(w_choices[cmd]['key'], w_choices[cmd]['order'])
-        @apci_session.import_sheet(sheet, cmd)
+        @apci_session.logger.debug('Google Data') {'Worksheet uri: ' + w_choices[cmd]}
+        cells_xml = g.get_content(w_choices[cmd])
+        worksheet = g.worksheet_feed_to_a(cells_xml)
+        @apci_session.import_sheet(worksheet, cmd)
       end
     end
     # End Worksheet import menu

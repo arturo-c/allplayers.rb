@@ -46,8 +46,7 @@ class ApciGoogSS
 
   def list_spreadsheets
     uri = @base_uri.join('feeds/spreadsheets/private/full')
-    feed = @client.get(uri.to_s)
-    XmlSimple.xml_in(feed.body, { 'ForceArray' => ['entry'] })
+    get_content(uri.to_s)
   rescue
     puts "Unable to list spreadsheets: " + $!
   end
@@ -55,8 +54,7 @@ class ApciGoogSS
   def get_content(href)
     # TODO - Maintain SSL/HTTPS...
     uri = Addressable::URI.parse(href)
-    feed = @client.get(uri.to_s)
-    XmlSimple.xml_in(feed.body, { 'ForceArray' => ['entry'] })
+    @client.get(uri.to_s).to_xml
   rescue
     puts "Unable to retrieve spreadsheet: " + $!
   end
