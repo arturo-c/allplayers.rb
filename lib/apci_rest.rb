@@ -175,9 +175,6 @@ class ApcirClient
       more_params.merge!({:purl => {:value => purl_path}})
     end
 
-    # APCIHACK - Fix renamed submit button.
-    more_params.merge!({:op => 'Save Group'})
-
     # APCIHACK - Fix non-required fields...
     more_params.merge!({
         :field_status => {:value => 'Active'},
