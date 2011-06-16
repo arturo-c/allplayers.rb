@@ -593,18 +593,20 @@ module ImportActions
 
     @logger.info(get_row_count.to_s) {'Importing ' + description +': ' + row['first_name'] + ' ' + row['last_name']}
 
-    # TODO - Parse height into feet decimal value (precision 2?).
-    # TODO - Shoe size might be a disaster - string to integer...
     # TODO - Test if all fields need 0 => value pattern or just value.
 
     more_params['field_emergency_contact_fname'] = {:'0' => {:value => row['emergency_contact_first_name']}} if row.has_key?('emergency_contact_first_name')
     more_params['field_emergency_contact_lname'] = {:'0' => {:value => row['emergency_contact_last_name']}} if row.has_key?('emergency_contact_last_name')
     more_params['field_emergency_contact_phone'] = {:'0' => {:value => row['emergency_contact_number']}} if row.has_key?('emergency_contact_number')
+    more_params['field_ethnicity'] = {:'0' => {:value => row['ethnicity']}} if row.has_key?('ethnicity')
     more_params['field_hat_size'] = {:'0' => {:value => row['hat_size']}} if row.has_key?('hat_size')
+    more_params['field_organization'] = {:'0' => {:value => row['organization']}} if row.has_key?('organization')
     more_params['field_pant_size'] = {:'0' => {:value => row['pant_size']}} if row.has_key?('pant_size')
     more_params['field_phone'] = {:'0' => {:value => row['home_phone']}} if row.has_key?('home_phone')
     more_params['field_school'] = {:'0' => {:value => row['school']}} if row.has_key?('school')
     more_params['field_school_grade'] = {:'0' => {:value => row['grade']}} if row.has_key?('grade')
+    more_params['field_weight'] = {:'0' => {:value => row['weight']}} if row.has_key?('weight')
+
     begin
       more_params['field_height'] = {:'0' => {:value => apci_field_height(row['height'])}} if row.has_key?('height')
       more_params['field_shoe_size'] = {:'0' => {:value => apci_field_shoe_size(row['shoe_size'])}} if row.has_key?('shoe_size')
@@ -612,8 +614,6 @@ module ImportActions
     rescue RuntimeError => e
       @logger.error(get_row_count.to_s) {'Error parsing ' + description + ': ' + e.message}
     end
-    more_params['field_weight'] = {:'0' => {:value => row['weight']}} if row.has_key?('weight')
-    more_params['field_organization'] = {:'0' => {:value => row['organization']}} if row.has_key?('organization')
 
     field_address = {}
     field_address['street'] =  row['primary_address_1'] if row.has_key?('primary_address_1')
