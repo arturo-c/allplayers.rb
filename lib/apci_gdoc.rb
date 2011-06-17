@@ -1,9 +1,8 @@
 require 'rubygems'
 require 'gdata'
-require 'fastercsv'
-require 'xmlsimple'
 require "addressable/uri"
 require 'highline/import'
+require 'nokogiri'
 
 # Stop EOF errors in Highline
 HighLine.track_eof = false
@@ -54,36 +53,19 @@ class ApciGoogSS
   def get_content(href)
     # TODO - Maintain SSL/HTTPS...
     uri = Addressable::URI.parse(href)
-    @client.get(uri.to_s).to_xml
+    response = @client.get(uri.to_s)
+    File.open('last_gdoc.xml', 'w') {|f| f.write(response.body) }
+    Nokogiri::XML(response.body)
   rescue
     puts "Unable to retrieve spreadsheet: " + $!
   end
 
-  # TODO - Try to move away from CSV (or anything that requires the spreadsheet to be manually published).
-  def get_from_csv(key, tab)
-    begin
-      uri = @base_uri.join('pub')
-      uri.query_values = {:key => key, :single => 'true', :gid => tab.to_s, :output => 'csv', :hl => 'en'}
-      feed = @client.get(uri.to_s)
-    rescue
-      puts "Failed to get spreadsheet CSV.  Did you publish the sheet?\n"
-      puts 'URI: ' + uri.to_s
-      puts $!
-    else
-      begin
-        FasterCSV.parse(feed.body, {:converters => :all} )
-      rescue
-        puts 'Failed to parse CSV'
-      end
-    end
-  end
-
-  # Traverse worksheet xml feed looking for cells and save them into a 2d array.
+  # Traverse worksheet Nokogiri::XML GData Worksheet feed looking for cells and save them into a 2d array.
   def worksheet_feed_to_a(xml)
     worksheet = []
-    xml.elements.each('entry/gs:cell') do | cell |
-      row = cell.attributes['row'].to_i - 1
-      col = cell.attributes['col'].to_i - 1
+    xml.xpath('xmlns:feed/xmlns:entry/gs:cell').each do |cell|
+      row = cell.attribute('row').content.to_i - 1
+      col = cell.attribute('col').content.to_i - 1
       worksheet[row] = [] if worksheet[row].nil?
       worksheet[row][col] = cell.text
     end

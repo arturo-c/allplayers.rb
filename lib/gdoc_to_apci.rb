@@ -42,8 +42,9 @@ def google_docs_import
   puts "Listing Spreadsheets...\n"
   spreadsheets = g.list_spreadsheets
   choices = {':quit' => ':quit'}
-  spreadsheets.elements.each('entry') do |spreadsheet|
-    choices.merge!({spreadsheet.elements['title'].text => spreadsheet})
+  spreadsheets.xpath('xmlns:feed/xmlns:entry').each do |spreadsheet|
+    spreadsheet_uri = spreadsheet.xpath("xmlns:content[@type='application/atom+xml;type=feed']").attribute('src')
+    choices.merge!({spreadsheet.xpath('xmlns:title').text => spreadsheet_uri})
   end
 
   loop do
@@ -54,17 +55,17 @@ def google_docs_import
 
     # Worksheet import menu.
     @apci_session.logger.info('Google Data') {"Fetching '#{cmd}'..."}
-    @apci_session.logger.debug('Google Data') {'Spreadsheet source: ' + choices[cmd].elements['content'].attributes['src']}
-    worksheets = g.get_content(choices[cmd].elements['content'].attributes['src'])
+    @apci_session.logger.debug('Google Data') {'Spreadsheet source: ' + choices[cmd]}
+    worksheets = g.get_content(choices[cmd])
 
     w_ops = {
       ':quit' => ':quit',
       ':all' => worksheets,
     }
     w_choices = {}
-    worksheets.elements.each('entry/title/..') do |entry|
-      cells_uri = entry.elements["link[@rel='http://schemas.google.com/spreadsheets/2006#cellsfeed')]"].attributes['href']
-      w_choices.merge!({entry.elements['title'].text => cells_uri})
+    worksheets.xpath('xmlns:feed/xmlns:entry').each do |worksheet|
+      cells_uri = worksheet.xpath("xmlns:link[@rel='http://schemas.google.com/spreadsheets/2006#cellsfeed']").attribute('href')
+      w_choices.merge!({worksheet.xpath('xmlns:title').text => cells_uri})
     end
     loop do
       cmd = ask("Choose worksheet to import:  ", w_choices.merge(w_ops).keys.sort) do |q|
@@ -78,6 +79,7 @@ def google_docs_import
         w_choices.each do |worksheet_info|
           @apci_session.logger.debug('Google Data') {'Worksheet uri: ' + worksheet_info[1]}
           cells_xml = g.get_content(worksheet_info[1])
+          @apci_session.logger.info('Google Data') {"Parsing worksheet..."}
           worksheet = worksheet_feed_to_a(cells_xml)
           @apci_session.import_sheet(worksheet, worksheet_info[0])
         end
@@ -86,6 +88,7 @@ def google_docs_import
         say("Importing \"#{cmd}\"...")
         @apci_session.logger.debug('Google Data') {'Worksheet uri: ' + w_choices[cmd]}
         cells_xml = g.get_content(w_choices[cmd])
+        @apci_session.logger.info('Google Data') {"Parsing worksheet..."}
         worksheet = g.worksheet_feed_to_a(cells_xml)
         @apci_session.import_sheet(worksheet, cmd)
       end

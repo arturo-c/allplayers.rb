@@ -6,13 +6,11 @@ REST API.
 Requires Ruby + Rubygems and the following:
 
 sudo apt-get install ruby libopenssl-ruby
-sudo gem install xml-simple
-sudo gem install addressable
-sudo gem install highline
-sudo gem install rest-client
-sudo gem install activesupport
-sudo gem install i18n
-sudo gem install ci_reporter
+
+# nokogiri requirements
+sudo apt-get install libxslt-dev libxml2-dev
+
+sudo gem install xml-simple addressable highline rest-client activesupport i18n nokogiri
 
 To test,
 
