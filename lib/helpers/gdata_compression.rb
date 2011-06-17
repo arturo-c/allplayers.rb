@@ -57,10 +57,6 @@ module GData
         response = Response.new
         response.body = res.plain_body
 
-        puts "Transferred: #{res.body.length} bytes"
-        puts "Compression: #{res['content-encoding']}"
-        puts "Extracted: #{res.plain_body.length} bytes"
-
         response.headers = Hash.new
         res.each do |key, value|
           response.headers[key] = value
