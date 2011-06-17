@@ -179,6 +179,8 @@ def apci_location_map(location)
     else
       location['country'].downcase!
     end
+  else
+    location['country'] = 'us'
   end
 
   location
