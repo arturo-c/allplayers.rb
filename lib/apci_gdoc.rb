@@ -54,9 +54,7 @@ class ApciGoogSS
   def get_content(href)
     # TODO - Maintain SSL/HTTPS...
     uri = Addressable::URI.parse(href)
-    response = @client.get(uri.to_s)
-    File.open('last_gdoc.xml', 'w') {|f| f.write(response.body) }
-    Nokogiri::XML(response.body)
+    Nokogiri::XML(@client.get(uri.to_s).body)
   rescue
     puts "Unable to retrieve spreadsheet: " + $!
   end
