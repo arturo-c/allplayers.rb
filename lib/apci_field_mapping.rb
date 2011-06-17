@@ -165,16 +165,20 @@ def apci_location_map(location)
     !allowed_keys.include? key || !value
   end
 
-  if (location.has_key?('province') && location['province'].length != 2)
-    raise 'Invalid State/Province Code.  Must be 2 char.  See Drupal location.module'
-  else
-    location['province'].upcase!
+  if (location.has_key?('province'))
+    if (location['province'].length != 2)
+      raise 'Invalid State/Province Code.  Must be 2 char.  See Drupal location.module'
+    else
+      location['province'].upcase!
+    end
   end
 
-  if (location.has_key?('country') && location['country'].length != 2)
-    raise 'Invalid Country Code.  Must be 2 char.  See Drupal location.module'
-  else
-    location['country'].downcase!
+  if (location.has_key?('country'))
+    if (location['country'].length != 2)
+      raise 'Invalid Country Code.  Must be 2 char.  See Drupal location.module'
+    else
+      location['country'].downcase!
+    end
   end
 
   location
