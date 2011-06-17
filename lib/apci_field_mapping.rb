@@ -148,3 +148,34 @@ def apci_field_height(height_text)
   height = feet + ((inches / 12.0) * 1000).round/1000.0
   return height.to_s
 end
+
+# Normalize location entries to Drupal Location module values.
+def apci_location_map(location)
+  # Map US friendly field names to Location module.
+  location['street'] =  location.delete('address_1') if location.has_key?('address_1')
+  location['additional'] =  location.delete('address_2') if location.has_key?('address_2')
+  location['province'] =  location.delete('state') if location.has_key?('state')
+  location['postal_code'] =  location.delete('zip') if location.has_key?('zip')
+
+  if (location['province'].length != 2)
+    raise 'Invalid State/Province Code.  Must be 2 char.  See Drupal location.module'
+  else
+    location['province'].upcase!
+  end
+
+  if (location['country'].length != 2)
+    raise 'Invalid Country Code.  Must be 2 char.  See Drupal location.module'
+  else
+    location['country'].downcase!
+  end
+
+  # APCI enabled location fields.
+  allowed_keys = ['street', 'additional', 'city', 'province', 'postal_code', 'country']
+
+  # Strip other fields
+  location.delete_if do |key, value|
+    !allowed_keys.include? key
+  end
+
+  location
+end

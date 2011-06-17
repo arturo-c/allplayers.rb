@@ -615,23 +615,11 @@ module ImportActions
       @logger.error(get_row_count.to_s) {'Error parsing ' + description + ': ' + e.message}
     end
 
-    field_address = {}
-    field_address['street'] =  row['primary_address_1'] if row.has_key?('primary_address_1')
-    field_address['additional'] =  row['primary_address_2'] if row.has_key?('primary_address_2')
-    field_address['city'] =  row['primary_city'] if row.has_key?('primary_city')
-    field_address['province'] =  row['primary_state'] if row.has_key?('primary_state')
-    field_address['postal_code'] =  row['primary_zip'] if row.has_key?('primary_zip')
-    field_address['country'] =  row['primary_country'] if row.has_key?('primary_country')
+    # Location fields
+    field_address = apci_location_map(row.key_filter('primary_'))
     more_params['field_address'] = {:'0' => field_address} unless field_address.empty?
 
-    # TODO This doesn't look very DRY, see above.
-    field_emergency_contact = {}
-    field_emergency_contact['street'] =  row['emergency_contact_address_1'] if row.has_key?('emergency_contact_address_1')
-    field_emergency_contact['additional'] =  row['emergency_contact_address_2'] if row.has_key?('emergency_contact_address_2')
-    field_emergency_contact['city'] =  row['emergency_contact_city'] if row.has_key?('emergency_contact_city')
-    field_emergency_contact['province'] =  row['emergency_contact_state'] if row.has_key?('emergency_contact_state')
-    field_emergency_contact['postal_code'] =  row['emergency_contact_zip'] if row.has_key?('emergency_contact_zip')
-    field_emergency_contact['country'] =  row['emergency_contact_country'] if row.has_key?('emergency_contact_country')
+    field_emergency_contact = apci_location_map(row.key_filter('emergency_contact_'))
     more_params['field_emergency_contact'] = {:'0' => field_emergency_contact} unless field_emergency_contact.empty?
 
     response = {}
