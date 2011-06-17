@@ -3,6 +3,7 @@ require 'gdata'
 require "addressable/uri"
 require 'highline/import'
 require 'nokogiri'
+require 'helpers/gdata_compression'
 
 # Stop EOF errors in Highline
 HighLine.track_eof = false
