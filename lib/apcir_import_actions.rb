@@ -611,16 +611,17 @@ module ImportActions
       more_params['field_height'] = {:'0' => {:value => apci_field_height(row['height'])}} if row.has_key?('height')
       more_params['field_shoe_size'] = {:'0' => {:value => apci_field_shoe_size(row['shoe_size'])}} if row.has_key?('shoe_size')
       more_params['field_size'] = {:'0' => {:value => apci_field_shirt_size(row['shirt_size'])}} if row.has_key?('shirt_size')
+
+      # Location fields
+      field_address = apci_location_map(row.key_filter('primary_'))
+      more_params['field_address'] = {:'0' => field_address} unless field_address.empty?
+
+      field_emergency_contact = apci_location_map(row.key_filter('emergency_contact_'))
+      more_params['field_emergency_contact'] = {:'0' => field_emergency_contact} unless field_emergency_contact.empty?
+
     rescue RuntimeError => e
       @logger.error(get_row_count.to_s) {'Error parsing ' + description + ': ' + e.message}
     end
-
-    # Location fields
-    field_address = apci_location_map(row.key_filter('primary_'))
-    more_params['field_address'] = {:'0' => field_address} unless field_address.empty?
-
-    field_emergency_contact = apci_location_map(row.key_filter('emergency_contact_'))
-    more_params['field_emergency_contact'] = {:'0' => field_emergency_contact} unless field_emergency_contact.empty?
 
     response = {}
 
