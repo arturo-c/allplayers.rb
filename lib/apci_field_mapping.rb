@@ -157,6 +157,14 @@ def apci_location_map(location)
   location['province'] =  location.delete('state') if location.has_key?('state')
   location['postal_code'] =  location.delete('zip') if location.has_key?('zip')
 
+  # APCI enabled location fields.
+  allowed_keys = ['street', 'additional', 'city', 'province', 'postal_code', 'country']
+
+  # Strip other fields
+  location.delete_if do |key, value|
+    !allowed_keys.include? key || !value
+  end
+
   if (location['province'].length != 2)
     raise 'Invalid State/Province Code.  Must be 2 char.  See Drupal location.module'
   else
@@ -167,14 +175,6 @@ def apci_location_map(location)
     raise 'Invalid Country Code.  Must be 2 char.  See Drupal location.module'
   else
     location['country'].downcase!
-  end
-
-  # APCI enabled location fields.
-  allowed_keys = ['street', 'additional', 'city', 'province', 'postal_code', 'country']
-
-  # Strip other fields
-  location.delete_if do |key, value|
-    !allowed_keys.include? key
   end
 
   location
