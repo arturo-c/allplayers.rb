@@ -53,8 +53,8 @@ end
 class ApcirClient
   attr_accessor :logger
 
-  def initialize(api_key = nil, server = 'sandbox.allplayers.com', protocol = 'http://')
-    @base_uri = Addressable::URI.join(protocol + server, '/api/v1/rest/')
+  def initialize(api_key = nil, server = 'sandbox.allplayers.com', protocol = 'https://')
+    @base_uri = Addressable::URI.join(protocol + server, '/api/rest/')
     @key = api_key # TODO - Not implemented in API yet.
     @session_cookies = {}
   end
@@ -90,13 +90,13 @@ class ApcirClient
     end
     file
   end
-  
+
   def file_list(parameters, fields = nil)
     filters = {:parameters => parameters}
     filters[:fields] = fields unless fields.nil?
     get 'file', filters
   end
-  
+
   def file_create(file)
     #[POST] {endpoint}/file/ + DATA
     file[:file] = ActiveSupport::Base64.encode64s(file[:file])

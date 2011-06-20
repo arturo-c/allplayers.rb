@@ -712,19 +712,8 @@ module ImportActions
       end
     end
 
-    # TODO - Move location handling to separate function.
-    location = {}
-    location['street'] =  row['group_address_1'] if row.has_key?('group_address_1')
-    location['additional'] =  row['group_address_2'] if row.has_key?('group_address_2')
-    location['city'] =  row['group_city'] if row.has_key?('group_city')
-    location['province'] =  row['group_state'] if row.has_key?('group_state')
-    location['postal_code'] =  row['group_zip'] if row.has_key?('group_zip')
-    # See Drupal location.module.  Province requires country.
-    if row.has_key?('group_country')
-      location['country'] =  row['group_country']
-    elsif location.has_key?('province')
-      location['country'] = 'us'
-    end
+    # Location fields
+    location = apci_location_map(row.key_filter('group_'))
 
     # Set Custom type, if 'Other' type.
     # TODO - Move this into apci_rest
