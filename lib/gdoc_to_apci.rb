@@ -48,14 +48,18 @@ def google_docs_import
   end
 
   loop do
-    cmd = ask("Choose spreadsheet:  ", choices.keys.sort) do |q|
-      q.readline = true
+    if @sheet
+      cmd = @sheet
+    else
+      cmd = ask("Choose spreadsheet:  ", choices.keys.sort) do |q|
+        q.readline = true
+      end
     end
     break if cmd == ":quit"
 
     # Worksheet import menu.
-    @apci_session.logger.info('Google Data') {"Fetching '#{cmd}'..."}
-    @apci_session.logger.debug('Google Data') {'Spreadsheet source: ' + choices[cmd]}
+    #@apci_session.logger.info('Google Data') {"Fetching '#{cmd}'..."}
+    #@apci_session.logger.debug('Google Data') {'Spreadsheet source: ' + choices[cmd]}
     worksheets = g.get_content(choices[cmd])
 
     w_ops = {
@@ -68,8 +72,12 @@ def google_docs_import
       w_choices.merge!({worksheet.xpath('xmlns:title').text => cells_uri})
     end
     loop do
-      cmd = ask("Choose worksheet to import:  ", w_choices.merge(w_ops).keys.sort) do |q|
-        q.readline = true
+      if @wsheet
+        cmd = @wsheet
+      else
+        cmd = ask("Choose worksheet to import:  ", w_choices.merge(w_ops).keys.sort) do |q|
+          q.readline = true
+        end
       end
       case cmd
       when ':quit'
@@ -98,21 +106,21 @@ def google_docs_import
   # End Spreadsheet search menu
 end
 
-# Get arguments
-user = Etc.getlogin
-pass, logger_level = nil
-@gdoc_mail, @gdoc_pass = nil
-
 opts = GetoptLong.new(
-  [ '--help', '-h',      GetoptLong::NO_ARGUMENT],
-  [ '-p',                GetoptLong::REQUIRED_ARGUMENT],
-  [ '--gdoc-mail',       GetoptLong::REQUIRED_ARGUMENT],
-  [ '--gdoc-pass',       GetoptLong::REQUIRED_ARGUMENT],
-  [ '--skip-rows', '-s', GetoptLong::REQUIRED_ARGUMENT],
-  [ '--threads',         GetoptLong::REQUIRED_ARGUMENT],
-  [ '--verbose', '-v',   GetoptLong::NO_ARGUMENT]
-)
+    [ '--help', '-h',      GetoptLong::NO_ARGUMENT],
+    [ '-p',                GetoptLong::REQUIRED_ARGUMENT],
+    [ '--gdoc-mail',       GetoptLong::REQUIRED_ARGUMENT],
+    [ '--gdoc-pass',       GetoptLong::REQUIRED_ARGUMENT],
+    [ '--skip-rows', '-s', GetoptLong::REQUIRED_ARGUMENT],
+    [ '--threads',         GetoptLong::REQUIRED_ARGUMENT],
+    [ '--verbose', '-v',   GetoptLong::NO_ARGUMENT]
+  )
 
+# Handle default argument => host to target for import and optional user,
+  # (i.e. user@sandbox.allplayers.com).
+user = Etc.getlogin
+pass = nil
+@gdoc_mail, @gdoc_pass = nil
 opts.each do |opt, arg|
   case opt
     when '--help'
@@ -132,58 +140,65 @@ opts.each do |opt, arg|
   end
 end
 
-# Handle default argument => host to target for import and optional user,
-# (i.e. user@sandbox.allplayers.com).
-if ARGV.length != 1
-  puts "No host argument, default used (try --help)"
-  @apci_session = ApcirClient.new
-else
-  host = ARGV.shift.split('@')
-  user = host.shift if host.length > 1
-  puts 'Connecting to ' + host[0] + '...'
-  @apci_session = ApcirClient.new(nil, host[0])
-end
-# End arguments
+def apci_imports_with_rails_app(pass, gdoc_mail, gdoc_pass)
+  logger_level = nil
+  @gdoc_mail = gdoc_mail
+  @gdoc_pass = gdoc_pass
+  if ARGV.length != 1
+    puts "No host argument, default used (try --help)"
+    @apci_session = ApcirClient.new
+  else
+    host = ARGV.shift.split('@')
+    user = host.shift if host.length > 1
+    puts 'Connecting to ' + host[0] + '...'
+    @apci_session = ApcirClient.new(nil, host[0])
+  end
+  # End arguments
 
-# Setup Logging.
-path = Dir.pwd + '/import_logs'
-begin
-  FileUtils.mkdir(path)
-rescue
-  # Do nothing, it's already there?  Perhaps you should catch a more specific
-  # message.
-ensure
-  log_suffix = Time.now.strftime("%Y-%m-%d_%H_%M_%S")
-  #
-  rest_logger = Logger.new(path + '/rest_' + log_suffix + '.log')
-  rest_logger.formatter = Logger::Formatter.new
-  rest_logger.level = Logger::DEBUG
-  logdev = ApciLogDevice.new(path + '/import_' + log_suffix + '.csv',
-    :shift_age => 0, :shift_size => 1048576)
-  logger = Logger.new(logdev)
-  logger.formatter = ApciFormatter.new
-  logger.level = logger_level.nil? ? Logger::DEBUG : logger_level
-end
+  # Setup Logging.
+  path = Dir.pwd + '/import_logs'
+  begin
+    FileUtils.mkdir(path)
+  rescue
+    # Do nothing, it's already there?  Perhaps you should catch a more specific
+    # message.
+  ensure
+    log_suffix = Time.now.strftime("%Y-%m-%d_%H_%M_%S")
+    #
+    rest_logger = Logger.new(path + '/rest_' + log_suffix + '.log')
+    rest_logger.formatter = Logger::Formatter.new
+    rest_logger.level = Logger::DEBUG
+    logdev = ApciLogDevice.new(path + '/import_' + log_suffix + '.csv',
+      :shift_age => 0, :shift_size => 1048576)
+    logger = Logger.new(logdev)
+    logger.formatter = ApciFormatter.new
+    logger.level = logger_level.nil? ? Logger::DEBUG : logger_level
+  end
 
-# End Logging.
-@apci_session.log(rest_logger)
+  # End Logging.
+  @apci_session.log(rest_logger)
 
-# Extend our API class with import and interactive actions.
-@apci_session.extend ImportActions
-@apci_session.logger = logger
-@apci_session.interactive_login(user,pass)
+  # Extend our API class with import and interactive actions.
+  @apci_session.extend ImportActions
+  @apci_session.logger = logger
+  @apci_session.interactive_login(user,pass)
 
-google_docs_import
+  google_docs_import
 =begin
-# Top level menu.
-choose do |menu|
-  menu.prompt = "Where will we import from?"
-  menu.choice(:'Google Docs') { google_docs_import }
-  menu.choices(:'.ODS', :'.CSV') { abort("Sorry, don't have that yet.") }
-end
+  # Top level menu.
+  choose do |menu|
+    menu.prompt = "Where will we import from?"
+    menu.choice(:'Google Docs') { google_docs_import }
+    menu.choices(:'.ODS', :'.CSV') { abort("Sorry, don't have that yet.") }
+  end
 =end
 
-logger.info('import') { "Logout from APCI Server" }
-@apci_session.logout
-rest_logger.close
-logger.close
+  logger.info('import') { "Logout from APCI Server" }
+  @apci_session.logout
+  rest_logger.close
+  logger.close
+end
+
+if @wsheet.nil? and @sheet.nil? and @gdoc_mail
+  apci_imports_with_rails_app(pass, @gdoc_mail, @gdoc_pass)
+end
