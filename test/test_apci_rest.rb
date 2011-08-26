@@ -559,7 +559,7 @@ class TestApcirClient < Test::Unit::TestCase
     assert_equal(fid, file['fid'].to_i)
     assert_not_nil(file['contents'])
 
-    web_file = open('http://' + $apci_rest_test_host + '/' + file['filepath']) {|f| f.read }
+    web_file = open('https://' + $apci_rest_test_host + '/' + file['filepath']) {|f| f.read }
     assert_equal(file['contents'], web_file)
   end
 
@@ -574,7 +574,7 @@ class TestApcirClient < Test::Unit::TestCase
     assert_equal(response['fid'], file['fid'])
     assert_not_nil(file['contents'])
     assert_equal(file['contents'], remote_file)
-    web_file = open('http://' + $apci_rest_test_host + '/' + file['filepath']) {|f| f.read }
+    web_file = open('https://' + $apci_rest_test_host + '/' + file['filepath']) {|f| f.read }
     assert_equal(file['contents'], web_file)
   end
 
