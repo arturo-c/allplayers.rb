@@ -1,6 +1,22 @@
+require 'rubygems'
+require 'restclient'
+require 'addressable/uri'
+require 'allplayers/auth/session'
+require 'allplayers/events'
+
 # Basic REST Operations.
-class AllPlayers
-  class REST
+module AllPlayers
+  include AllPlayers::Events
+  class Client
+    def initialize(api_key = nil, server = 'sandbox.allplayers.com', protocol = 'https://', auth = 'session')
+      if (auth == 'session')
+        extend AllPlayers::Auth::Session
+      end
+      @base_uri = Addressable::URI.join(protocol + server, '/api/rest/')
+      @key = api_key # TODO - Not implemented in API yet.
+      @session_cookies = {}
+    end
+    
     # GET, PUT, POST, DELETE, etc.
     def get(path, query = {}, headers = {})
     # @TODO - cache here (HTTP Headers?)

@@ -1,86 +1,15 @@
 require 'rubygems'
-require 'restclient'
-require 'restclient/response'
 require 'xmlsimple'
-require 'addressable/uri'
 require 'logger'
 require 'active_support/base64'
 require 'allplayers'
 
-# duck-punch some pretty error messages into RestClient library exceptions.
-RestClient::STATUSES.each_pair do |code, message|
-  RestClient::Exceptions::EXCEPTIONS_MAP[code].send(:define_method, :message) {
-    response_error = ''
-    if !self.response.nil?
-        response_error = ' : ' + CGI::unescapeHTML(self.response.gsub(/<\/?[^>]*>/, " ").strip.gsub(/\r\n?/, ', ').squeeze(' '))
-    end
-    "#{http_code ? "#{http_code} " : ''}#{message}#{response_error}"
-  }
-end
-
-# duck-punch RestClient to support custom timeouts.
-module RestClient
-
-  def self.get(url, headers={}, &block)
-    Request.execute(:method => :get, :url => url, :headers => headers, :timeout => @timeout, :open_timeout => @open_timeout, &block)
-  end
-
-  def self.post(url, payload, headers={}, &block)
-    Request.execute(:method => :post, :url => url, :payload => payload, :headers => headers, :timeout => @timeout, :open_timeout => @open_timeout, &block)
-  end
-
-  def self.put(url, payload, headers={}, &block)
-    Request.execute(:method => :put, :url => url, :payload => payload, :headers => headers, :timeout => @timeout, :open_timeout => @open_timeout, &block)
-  end
-
-  def self.delete(url, headers={}, &block)
-    Request.execute(:method => :delete, :url => url, :headers => headers, :timeout => @timeout, :open_timeout => @open_timeout, &block)
-  end
-
-  def self.head(url, headers={}, &block)
-    Request.execute(:method => :head, :url => url, :headers => headers, :timeout => @timeout, :open_timeout => @open_timeout, &block)
-  end
-
-  def self.options(url, headers={}, &block)
-    Request.execute(:method => :options, :url => url, :headers => headers, :timeout => @timeout, :open_timeout => @open_timeout, &block)
-  end
-
-  class << self
-    attr_accessor :timeout
-    attr_accessor :open_timeout
-  end
-end
-
-class ApcirClient < AllPlayers::REST
+class ApcirClient < AllPlayers::Client
   attr_accessor :logger
-
-  def initialize(api_key = nil, server = 'sandbox.allplayers.com', protocol = 'https://')
-    @base_uri = Addressable::URI.join(protocol + server, '/api/rest/')
-    @key = api_key # TODO - Not implemented in API yet.
-    @session_cookies = {}
-  end
 
   def log(target)
     @log = target
     RestClient.log = target
-  end
-
-  def login(name, pass)
-    begin
-      post 'user/login' , {:username => name, :password => pass}
-    rescue RestClient::Exception => e
-      puts "Session authentication error."
-      raise #Re-raise the error.
-    end
-  end
-
-  def logout()
-    begin
-      #[POST] {endpoint}/user/logout
-      post 'user/logout'
-    ensure
-      @session_cookies = {} # Delete the cookies.
-    end
   end
 
   def file_get(fid, file_contents = true)
@@ -184,24 +113,6 @@ class ApcirClient < AllPlayers::REST
     })
 
     node_create title, 'group', nil, required_params.merge(more_params)
-  end
-
-  def event_create(title, groups, start_date, end_date, category, body = nil, more_params = {})
-
-    # Get appropriate Taxonomy term.
-    vid = self.taxonomy_vocabulary_list({:module => 'features_event_category'})['item']['vid']
-    tid = self.taxonomy_term_list({:name => category, :vid => vid})['item']['tid']
-
-    required_params = {
-      :og_audience => groups, #TODO - that ain't gonna fly, need to lookup the groups.
-      :taxonomy => {vid => tid},
-      :field_date => {:'0' => {
-          :value => start_date, # TODO - That won't work, need to figure out date format.
-          :value2 => end_date, # TODO - That won't work, need to figure out date format.
-        }}
-    }
-
-    node_create title, 'vevent', body, required_params.merge(more_params)
   end
 
   def taxonomy_vocabulary_list(filters)
