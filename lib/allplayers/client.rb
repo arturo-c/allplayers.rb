@@ -6,8 +6,8 @@ require 'allplayers/events'
 
 # Basic REST Operations.
 module AllPlayers
-  include AllPlayers::Events
   class Client
+    include AllPlayers::Events
     def initialize(api_key = nil, server = 'sandbox.allplayers.com', protocol = 'https://', auth = 'session')
       if (auth == 'session')
         extend AllPlayers::Auth::Session
