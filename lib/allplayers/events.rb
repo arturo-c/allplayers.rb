@@ -1,6 +1,6 @@
 module AllPlayers
   module Events
-    def event_create(title, description, groups, date_start, date_end, more_params = {})
+    def event_create(title, description, groups, date_start, date_end, nid = nil, more_params = {})
       required_params = {
         :gids => groups,
         :title => title,
@@ -10,7 +10,13 @@ module AllPlayers
             :date_end => date_end, 
           }
       }
-      post 'events', required_params.merge(more_params)
+      if nid.nil?
+        response = post 'events', required_params.merge(more_params)
+      else
+        more_params['eid'] = nid
+        put 'events/'+nid, required_params.merge(more_params)
+        response = 'update'
+      end
     end
   end
 end

@@ -10,6 +10,7 @@ require 'thread'
 require 'logger'
 require 'resolv'
 require 'date'
+require 'apci_gdoc'
 
 # Stop EOF errors in Highline
 HighLine.track_eof = false
@@ -314,7 +315,7 @@ module ImportActions
     end
   end
 
-  def import_sheet(sheet, name)
+  def import_sheet(sheet, name, g, wuri)
 
     start_time = Time.now
     @logger.debug('import') {'Started ' + start_time.to_s}
@@ -391,7 +392,11 @@ module ImportActions
     elsif (name == 'Events')
       #elsif (2 <= (column_defs & ['Title', 'Groups Involved', 'Duration (in minutes)']).length)
       @logger.info(get_row_count.to_s) {"Importing Events\n"}
-      sheet.each {|row| self.import_event(self.prepare_row(row, column_defs))}
+      sheet.each {|row| 
+        row_count+=1
+        response = self.import_event(self.prepare_row(row, column_defs))
+        g.put_cell_content(wuri.to_s+'/R'+row_count.to_s+'C6', response['nid'], row_count, 6) if response != 'update'
+      }
     elsif (name == 'Users in Groups')
       #elsif (2 <= (column_defs & ['Group Name', 'User email', 'Role (Admin, Coach, Player, etc)']).length)
       @logger.info(get_row_count.to_s) {"Importing Users in Groups\n"}
@@ -758,21 +763,32 @@ module ImportActions
 
   def import_event(row)
     puts row.to_yaml
-    return
 
-    # TODO - Assign owner uid/name to event.
-    groups = row['event_group_names'] # TODO - Lookup group assignments.
-
-    # Placeholder for additional fields.
     more_params = {}
+    # Check Group
+    if row.has_key?('group_nid')
+      nid = row['group_nid']
+      nodes = node_list({
+        :type => 'group',
+        :nid => nid,
+      })
+      if nodes.has_key?('item') && nodes['item'].length == 1
 
-    self.event_create(
-      row['event_title'],
-      groups,
-      Date.parse(row['start_date_time']),
-      Date.parse(row['end_date_time']),
-      row['event_title'],
+      else
+        @logger.error(get_row_count.to_s) {"Can't locate group " + row['group_nid']}
+        return
+      end
+    else
+      @logger.error(get_row_count.to_s) {'Event ' + row['title'] + " can't be created without a group."}
+      return
+    end
+    response = self.event_create(
+      row['title'],
       row['description'],
+      row['group_nid'],
+      row['start_date'],
+      row['end_date'],
+      row['eid'],
       more_params
     )
     #log stuff!!

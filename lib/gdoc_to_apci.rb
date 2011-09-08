@@ -98,7 +98,7 @@ def google_docs_import
         cells_xml = g.get_content(w_choices[cmd])
         @apci_session.logger.info('Google Data') {"Parsing worksheet..."}
         worksheet = g.worksheet_feed_to_a(cells_xml)
-        @apci_session.import_sheet(worksheet, cmd)
+        @apci_session.import_sheet(worksheet, cmd, g, w_choices[cmd])
       end
     end
     # End Worksheet import menu
