@@ -3,16 +3,18 @@ require 'restclient'
 require 'addressable/uri'
 require 'allplayers/auth/session'
 require 'allplayers/events'
+require 'allplayers/users'
 
 # Basic REST Operations.
 module AllPlayers
   class Client
     include AllPlayers::Events
-    def initialize(api_key = nil, server = 'sandbox.allplayers.com', protocol = 'http://', auth = 'session')
+    include AllPlayers::Users
+    def initialize(api_key = nil, server = 'sandbox.allplayers.com', protocol = 'https://', auth = 'session')
       if (auth == 'session')
         extend AllPlayers::Auth::Session
       end
-      @base_uri = Addressable::URI.join(protocol + server, '/api/v1/rest/')
+      @base_uri = Addressable::URI.join(protocol + server, '/api/rest/')
       @key = api_key # TODO - Not implemented in API yet.
       @session_cookies = {}
     end

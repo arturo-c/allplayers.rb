@@ -2,4 +2,3 @@
 require 'allplayers/monkey_patches/rest_client'
 require 'allplayers/client'
 require 'allplayers/auth/session'
-require 'allplayers/events'
