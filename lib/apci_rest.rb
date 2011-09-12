@@ -73,48 +73,6 @@ class ApcirClient < AllPlayers::Client
     put 'node/' + nid.to_s, {:node => params}
   end
 
-  def group_create(title, description, categories, location, type, more_params = {})
-
-    # Get appropriate Taxonomy term.
-    # @TODO - Handle hierachical taxonomy.
-    vocabulary = {}
-    categories.each do |category|
-      vid = self.taxonomy_vocabulary_list({:module => 'features_group_category'})['item'][0]['vid'].to_s
-      tid = self.taxonomy_term_list({:name => category, :vid => vid})['item'][0]['tid'].to_s unless vid.empty?
-      if vocabulary[vid]
-        vocabulary[vid].push(tid)
-      else
-        vocabulary.merge!({vid => [tid]})
-      end
-    end
-
-    required_params = {
-      :og_description => description,
-      :field_location => {:'0' => location},
-      :taxonomy => vocabulary,
-      :spaces_preset_og => type.downcase,
-    }
-
-    # DOC - To specify 'other' type
-    # more_params.merge!({:spaces_preset_other => 'Other'})
-
-    # Generate a path with random title, type and random string if none given.
-    # TODO - Check for collisions...
-    if more_params['purl'].nil?
-      purl_path = (title + ' ' + type).downcase.gsub(/[^0-9a-z]/i, '_')
-      more_params.merge!({:purl => {:value => purl_path}})
-    end
-
-    # APCIHACK - Fix non-required fields...
-    more_params.merge!({
-        :field_status => {:value => 'Active'},
-        :field_group_mates => {:value => 'Group Mates'},
-        :field_accept_amex => {:value => 'Accept'},
-    })
-
-    node_create title, 'group', nil, required_params.merge(more_params)
-  end
-
   def taxonomy_vocabulary_list(filters)
     #[GET] {endpoint}/vocabulary (?fields[]=fieldname&vid=value)
     get 'vocabulary', {:parameters => filters}

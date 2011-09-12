@@ -4,12 +4,14 @@ require 'addressable/uri'
 require 'allplayers/auth/session'
 require 'allplayers/events'
 require 'allplayers/users'
+require 'allplayers/groups'
 
 # Basic REST Operations.
 module AllPlayers
   class Client
     include AllPlayers::Events
     include AllPlayers::Users
+    include AllPlayers::Groups
     def initialize(api_key = nil, server = 'sandbox.allplayers.com', protocol = 'https://', auth = 'session')
       if (auth == 'session')
         extend AllPlayers::Auth::Session

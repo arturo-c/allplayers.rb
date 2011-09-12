@@ -387,7 +387,6 @@ module ImportActions
     elsif (name == 'Groups' || name == 'Group Information')
       #elsif (2 <= (column_defs & ['Group Name', 'Category']).length)
       @logger.info(get_row_count.to_s) {"Importing Groups\n"}
-      return unless interactive_node_owner
       sheet.each {|row| self.import_group(self.prepare_row(row, column_defs))}
     elsif (name == 'Events')
       #elsif (2 <= (column_defs & ['Title', 'Groups Involved', 'Duration (in minutes)']).length)
@@ -679,13 +678,13 @@ module ImportActions
     # Assign owner uid/name to group.
     # TODO - Move node ownership into the apci_rest library.  All nodes should
     # have an owner, generally not admin.
-    if @node_owner_email
+    if row['uid']
       begin
-        uid = email_to_uid(@node_owner_email)
+        uid = row['uid'].to_i
         owner = self.user_get(uid)
         raise if !owner.has_key?('name')
       rescue
-        puts "Couldn't get group owner: " + @node_owner_email
+        puts "Couldn't get group owner: " + row['uid'].to_s
         return {}
       end
     else
