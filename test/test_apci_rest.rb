@@ -129,8 +129,8 @@ class TestApcirClient < Test::Unit::TestCase
     assert_equal("1", user['item'].first['uid'])
   end
 
-  def test_user_create
-    random_first = (0...8).map{65.+(rand(25)).chr}.join
+  def test_user_create(random_first = nil)
+    random_first = (0...8).map{65.+(rand(25)).chr}.join if random_first.nil?
     birthday = Date.new(1983,5,23)
     response = $apci_session.user_create(
       random_first + '@example.com',
@@ -616,7 +616,42 @@ class TestApcirClient < Test::Unit::TestCase
     group = $apci_session.node_get(group_response['nid'])
     assert_equal(response['fid'], group['field_logo']['item'].first['fid'])
   end
-
+  
+  def test_user_create_multiple_threads
+    for i in 1..4 do
+      name = (0...8).map{65.+(rand(25)).chr}.join
+      user_create_multiple_threads(name)
+    end
+  end
+  
+  protected
+  def user_create_multiple_threads(name)
+    # Multi-thread
+    threads = []
+    # Set default thread_count to 7, accept global to change it.
+    thread_count = $thread_count.nil? ? 4 : $thread_count
+    succeed = 0
+    failures = 0
+    for i in 1..thread_count do
+      threads << Thread.new {
+        begin
+          test_user_create(name)
+        rescue => e
+          failures += 1
+        else  
+          succeed += 1
+        end
+      }
+    end
+    threads.each_index {|i|
+      threads[i].join
+    }
+    assert_equal(succeed, 1)
+    assert_equal(failures, thread_count - 1)
+    users = $apci_session.user_list({:mail => name + '@example.com'})
+    assert_equal(users['item'].size, 1)
+  end
+  
   # HTTP 500... no good
   #def test_node_files_get
   #  nid = 852788
