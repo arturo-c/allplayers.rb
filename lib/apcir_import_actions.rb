@@ -315,7 +315,7 @@ module ImportActions
     end
   end
 
-  def import_sheet(sheet, name, g, wuri)
+  def import_sheet(sheet, name, g = nil, wuri = nil)
 
     start_time = Time.now
     @logger.debug('import') {'Started ' + start_time.to_s}
@@ -394,7 +394,9 @@ module ImportActions
       sheet.each {|row| 
         row_count+=1
         response = self.import_event(self.prepare_row(row, column_defs))
-        g.put_cell_content(wuri.to_s+'/R'+row_count.to_s+'C6', response['nid'], row_count, 6) if response != 'update'
+        unless g.nil? || wuri.nil?
+          g.put_cell_content(wuri.to_s+'/R'+row_count.to_s+'C6', response['nid'], row_count, 6) if response != 'update'
+        end
       }
     elsif (name == 'Users in Groups')
       #elsif (2 <= (column_defs & ['Group Name', 'User email', 'Role (Admin, Coach, Player, etc)']).length)
