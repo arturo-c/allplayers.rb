@@ -69,5 +69,9 @@ module AllPlayers
       post 'user/' + child_uid.to_s() + '/addparent/' + parent_uid.to_s()
     end
     
+    def user_delete(uid)
+      delete 'user/' + uid.to_s
+    end
+    
   end
 end
