@@ -39,7 +39,7 @@ module AllPlayers
       })
 
       #node_create title, 'group', nil, required_params.merge(more_params)
-      post 'groups', required_params, {:params => more_params}
+      post 'groups', {:group => required_params.merge(more_params)}
       
     end
   end
