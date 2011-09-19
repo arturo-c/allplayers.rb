@@ -41,7 +41,7 @@ module AllPlayers
 
     def request(verb, path, query = {}, payload = {}, headers = {})
       begin
-        if ['events', 'groups'].include? path
+        if ['albums', 'announcements', 'broadcasts', 'events', 'groups', 'messages', 'photos', 'resources', 'users'].include? path
           uri = Addressable::URI.join(@base_uri, 'api/v1/rest/'+path.to_s)
         else
           uri = Addressable::URI.join(@base_uri, 'api/rest/'+path.to_s)
