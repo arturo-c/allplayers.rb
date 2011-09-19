@@ -16,80 +16,46 @@ module AllPlayers
       if (auth == 'session')
         extend AllPlayers::Auth::Session
       end
-      @base_uri = Addressable::URI.join(protocol + server, '/api/rest/')
+      @base_uri = Addressable::URI.join(protocol + server, '')
       @key = api_key # TODO - Not implemented in API yet.
       @session_cookies = {}
     end
-    
+
     # GET, PUT, POST, DELETE, etc.
     def get(path, query = {}, headers = {})
-    # @TODO - cache here (HTTP Headers?)
+      # @TODO - cache here (HTTP Headers?)
+      request(:get, path, query, {}, headers)
+    end
+
+    def post(path, payload = {}, headers = {})
+      request(:post, path, {}, payload, headers)
+    end
+
+    def put(path, payload = {}, headers = {})
+      request(:put, path, {}, payload, headers)
+    end
+
+    def delete(path, headers = {})
+      request(:delete, path, {}, {}, headers)
+    end
+
+    def request(verb, path, query = {}, payload = {}, headers = {})
       begin
-        uri = @base_uri.join(path)
-        # TODO - Convert all query values to strings.
+        if path.include? 'events'
+          uri = Addressable::URI.join(@base_uri, 'api/v1/rest/'+path.to_s)
+        else
+          uri = Addressable::URI.join(@base_uri, 'api/rest/'+path.to_s)
+        end
         uri.query_values = query unless query.empty?
         headers.merge!({:cookies => @session_cookies}) unless @session_cookies.empty?
         RestClient.log = @log
         RestClient.open_timeout = 600
         RestClient.timeout = 600
-        response = RestClient.get(uri.to_s, headers)
-        # @TODO - Review this logic - Update the cookies.
-        @session_cookies.merge!(response.cookies) unless response.cookies.empty?
-        # @TODO - There must be a way to change the base object (XML string to
-        #   Hash) while keeping the methods...
-        XmlSimple.xml_in(response, { 'ForceArray' => ['item'] })
-      rescue REXML::ParseException => xml_err
-        # XML Parser error
-        raise "Failed to parse server response."
-      end
-    end
-
-    def post(path, params = {}, headers = {})
-      begin
-        uri = @base_uri.join(path)
-        headers.merge!({:cookies => @session_cookies}) unless @session_cookies.empty?
-        RestClient.log = @log
-        RestClient.open_timeout = 600
-        RestClient.timeout = 600
-        response = RestClient.post(uri.to_s, params, headers)
-        # @TODO - Review this logic - Update the cookies.
-        @session_cookies.merge!(response.cookies) unless response.cookies.empty?
-        # @TODO - There must be a way to change the base object (XML string to
-        #   Hash) while keeping the methods...
-        XmlSimple.xml_in(response, { 'ForceArray' => ['item'] })
-      rescue REXML::ParseException => xml_err
-        # XML Parser error
-        raise "Failed to parse server response."
-      end
-    end
-
-    def put(path, params = {}, headers = {})
-      begin
-        uri = @base_uri.join(path)
-        headers.merge!({:cookies => @session_cookies}) unless @session_cookies.empty?
-        RestClient.log = @log
-        RestClient.open_timeout = 600
-        RestClient.timeout = 600
-        response = RestClient.put(uri.to_s, params, headers)
-        # @TODO - Review this logic - Update the cookies.
-        @session_cookies.merge!(response.cookies) unless response.cookies.empty?
-        # @TODO - There must be a way to change the base object (XML string to
-        #   Hash) while keeping the methods...
-        XmlSimple.xml_in(response, { 'ForceArray' => ['item'] })
-      rescue REXML::ParseException => xml_err
-        # XML Parser error
-        raise "Failed to parse server response."
-      end
-    end
-    
-    def delete(path, headers = {})
-      begin
-        uri = @base_uri.join(path)
-        headers.merge!({:cookies => @session_cookies}) unless @session_cookies.empty?
-        RestClient.log = @log
-        RestClient.open_timeout = 600
-        RestClient.timeout = 600
-        response = RestClient.delete(uri.to_s, headers)
+        if [:patch, :post, :put].include? verb
+          response = RestClient.send(verb, uri.to_s, payload, headers)
+        else
+          response = RestClient.send(verb, uri.to_s, headers)
+        end
         # @TODO - Review this logic - Update the cookies.
         @session_cookies.merge!(response.cookies) unless response.cookies.empty?
         # @TODO - There must be a way to change the base object (XML string to
