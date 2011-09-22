@@ -1,4 +1,5 @@
 RSpec.configure do |c|
+  c.treat_symbols_as_metadata_keys_with_true_values = true
   c.before(:all) {
     def get_args
       # If any environment variable set, skip argument handling.

@@ -3,6 +3,7 @@ require 'helper'
 describe AllPlayers::Client do
   describe "User" do
     before :all do
+      # Create User.
       $birthday = Date.new(1983,5,23)
       $random_first = (0...8).map{65.+(rand(25)).chr}.join
       $user = $apci_session.user_create(
