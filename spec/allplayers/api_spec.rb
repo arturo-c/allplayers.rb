@@ -72,7 +72,7 @@ describe AllPlayers::API do
     end
     $apci_session = $apci_session
   end
-  it "should return a valid session" do
+  it "should return a valid session." do
     $apci_session.should_not == nil
   end
 

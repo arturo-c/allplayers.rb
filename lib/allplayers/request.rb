@@ -30,9 +30,9 @@ module AllPlayers
         end
         uri.query_values = query unless query.empty?
         headers.merge!({:cookies => @session_cookies}) unless @session_cookies.empty?
-        #RestClient.log = @log
-        #RestClient.open_timeout = 600
-        #RestClient.timeout = 600
+        RestClient.log = @log
+        RestClient.open_timeout = 600
+        RestClient.timeout = 600
         if [:patch, :post, :put].include? verb
           response = RestClient.send(verb, uri.to_s, payload, headers)
         else

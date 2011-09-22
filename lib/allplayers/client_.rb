@@ -10,11 +10,12 @@ module AllPlayers
     require 'allplayers/client/user'
     require 'allplayers/client/group'
     require 'allplayers/client/taxonomy'
+    require 'allplayers/client/file'
     include AllPlayers::Event
     include AllPlayers::User
     include AllPlayers::Group
     include AllPlayers::Node
     include AllPlayers::Taxonomy
-
+    include AllPlayers::File
   end
 end
