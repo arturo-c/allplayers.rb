@@ -1,7 +1,7 @@
 # Require minimal files needed for AllPlayers public API here.
 require 'allplayers/monkey_patches/rest_client'
 require 'allplayers/api'
-require 'allplayers/client'
+require 'allplayers/client_'
 require 'allplayers/configuration'
 
 module AllPlayers

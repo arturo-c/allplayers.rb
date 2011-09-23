@@ -38,8 +38,8 @@ module AllPlayers
           :field_accept_amex => {:value => 'Accept'},
       })
 
-      #node_create title, 'group', nil, required_params.merge(more_params)
-      post 'groups', {:group => required_params.merge(more_params)}
+      node_create title, 'group', nil, required_params.merge(more_params)
+      #post 'groups', {:group => required_params.merge(more_params)}
       
     end
   end
