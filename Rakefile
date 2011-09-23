@@ -10,6 +10,8 @@ require 'rake/gempackagetask'
 require 'rake/rdoctask'
 require 'rake/testtask'
 require 'ci/reporter/rake/test_unit'
+require 'rspec/core/rake_task'
+require 'ci/reporter/rake/rspec'
 
 spec = Gem::Specification.new do |s|
   s.name = 'allplayers-ruby-client'
