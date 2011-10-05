@@ -36,6 +36,7 @@ require 'rdoc/usage'
 require 'logger'
 require 'etc'
 require 'date'
+require 'net/https'
 
 class TestApcirClient < Test::Unit::TestCase
 
@@ -45,6 +46,7 @@ class TestApcirClient < Test::Unit::TestCase
       $apci_rest_test_host = ENV['APCI_REST_TEST_HOST']
       $apci_rest_test_user = ENV['APCI_REST_TEST_USER']
       $apci_rest_test_pass = ENV['APCI_REST_TEST_PASS']
+      $uri = URI.parse(ARGV[0] || 'https://' + $apci_rest_test_host + '/')
       return
     end
 
@@ -555,12 +557,14 @@ class TestApcirClient < Test::Unit::TestCase
   def test_file_get
     fid = test_file_list.to_i
     file = $apci_session.file_get(fid, true)
-
     assert_equal(fid, file['fid'].to_i)
     assert_not_nil(file['contents'])
-
-    web_file = open('https://' + $apci_rest_test_host + '/' + file['filepath']) {|f| f.read }
-    assert_equal(file['contents'], web_file)
+    
+    http = Net::HTTP.new($uri.host, $uri.port)
+    http.use_ssl = true if $uri.scheme == "https"
+    http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+    resp = http.get('/' + file['filepath'])
+    assert_equal(file['contents'], resp.read_body)
   end
 
   def test_file_create
@@ -574,8 +578,12 @@ class TestApcirClient < Test::Unit::TestCase
     assert_equal(response['fid'], file['fid'])
     assert_not_nil(file['contents'])
     assert_equal(file['contents'], remote_file)
-    web_file = open('https://' + $apci_rest_test_host + '/' + file['filepath']) {|f| f.read }
-    assert_equal(file['contents'], web_file)
+    
+    http = Net::HTTP.new($uri.host, $uri.port)
+    http.use_ssl = true if $uri.scheme == "https"
+    http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+    resp = http.get('/' + file['filepath'])
+    assert_equal(file['contents'], resp.read_body)
   end
 
   def test_node_file_attach
