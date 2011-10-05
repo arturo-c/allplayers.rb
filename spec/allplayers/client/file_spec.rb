@@ -5,6 +5,10 @@ describe AllPlayers::Client do
     before :all do
       $filelist = $apci_session.file_list({:filemime => 'image/jpeg'})
       $fid = $filelist['item'].last['fid']
+      uri = URI.parse(ARGV[1] || 'https://' + $apci_rest_test_host + '/')
+      $http = Net::HTTP.new(uri.host, uri.port)
+      $http.use_ssl = true
+      $http.verify_mode = OpenSSL::SSL::VERIFY_NONE
     end
 
     it "should be retrievable. (get)" do
@@ -14,8 +18,8 @@ describe AllPlayers::Client do
       file['fid'].to_i.should == fid
       file['contents'].should_not == nil
 
-      web_file = open('https://' + $apci_rest_test_host + '/' + file['filepath']) {|f| f.read }
-      web_file.should == file['contents']
+      resp = $http.get('/' + file['filepath'])
+      resp.read_body.should == file['contents']
     end
 
     it "should be created properly." do
@@ -29,8 +33,9 @@ describe AllPlayers::Client do
       file['fid'].should == response['fid']
       file['contents'].should_not == nil
       remote_file.should == file['contents']
-      web_file = open('https://' + $apci_rest_test_host + '/' + file['filepath']) {|f| f.read }
-      web_file.should == file['contents']
+
+      resp = $http.get('/' + file['filepath'])
+      resp.read_body.should == file['contents']
     end
   end
 end
