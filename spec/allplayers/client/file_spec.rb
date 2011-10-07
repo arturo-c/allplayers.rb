@@ -8,7 +8,11 @@ describe AllPlayers::Client do
       uri = URI.parse(ARGV[1] || 'https://' + $apci_rest_test_host + '/')
       $http = Net::HTTP.new(uri.host, uri.port)
       $http.use_ssl = true
-      $http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+      if $ssl_check == '1'
+        $http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+      else
+        $http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+      end
     end
 
     it "should be retrievable. (get)" do

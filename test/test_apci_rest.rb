@@ -46,6 +46,7 @@ class TestApcirClient < Test::Unit::TestCase
       $apci_rest_test_host = ENV['APCI_REST_TEST_HOST']
       $apci_rest_test_user = ENV['APCI_REST_TEST_USER']
       $apci_rest_test_pass = ENV['APCI_REST_TEST_PASS']
+      $ssl_check = ENV['SSL_CHECK']
       $uri = URI.parse(ARGV[0] || 'https://' + $apci_rest_test_host + '/')
       return
     end
@@ -562,7 +563,11 @@ class TestApcirClient < Test::Unit::TestCase
     
     http = Net::HTTP.new($uri.host, $uri.port)
     http.use_ssl = true if $uri.scheme == "https"
-    http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+    if $ssl_check == '1'
+      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+    else
+      http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+    end
     resp = http.get('/' + file['filepath'])
     assert_equal(file['contents'], resp.read_body)
   end

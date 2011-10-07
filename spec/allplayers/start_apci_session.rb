@@ -7,6 +7,7 @@ RSpec.configure do |c|
         $apci_rest_test_host = ENV['APCI_REST_TEST_HOST']
         $apci_rest_test_user = ENV['APCI_REST_TEST_USER']
         $apci_rest_test_pass = ENV['APCI_REST_TEST_PASS']
+        $ssl_check = ENV['SSL_CHECK']
         return
       end
 
