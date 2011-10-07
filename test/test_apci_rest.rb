@@ -564,9 +564,9 @@ class TestApcirClient < Test::Unit::TestCase
     http = Net::HTTP.new($uri.host, $uri.port)
     http.use_ssl = true if $uri.scheme == "https"
     if $ssl_check == '1'
-      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-    else
       http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+    else
+      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
     end
     resp = http.get('/' + file['filepath'])
     assert_equal(file['contents'], resp.read_body)
@@ -586,7 +586,11 @@ class TestApcirClient < Test::Unit::TestCase
     
     http = Net::HTTP.new($uri.host, $uri.port)
     http.use_ssl = true if $uri.scheme == "https"
-    http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+    if $ssl_check == '1'
+      http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+    else
+      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+    end
     resp = http.get('/' + file['filepath'])
     assert_equal(file['contents'], resp.read_body)
   end

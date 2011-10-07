@@ -9,9 +9,9 @@ describe AllPlayers::Client do
       $http = Net::HTTP.new(uri.host, uri.port)
       $http.use_ssl = true
       if $ssl_check == '1'
-        $http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-      else
         $http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+      else
+        $http.verify_mode = OpenSSL::SSL::VERIFY_NONE
       end
     end
 
