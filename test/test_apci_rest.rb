@@ -272,6 +272,7 @@ class TestApcirClient < Test::Unit::TestCase
         'postal_code' => {'0' => {'value' => '75067'}},
         'country' => {'0' => {'value' => 'us'}},
       },
+      :type => 'profile'
     }
     response = $apci_session.node_update(nid, params)
 
@@ -394,7 +395,7 @@ class TestApcirClient < Test::Unit::TestCase
     node = $apci_session.node_get(response['nid'])
 
     body = body + ' Testing update, blah, blah, blah.'
-    more_params = { :body => body }
+    more_params = {:title => random_title, :type => 'book', :body => body}
     update_response = $apci_session.node_update(response['nid'], more_params)
     assert_equal(node['nid'], update_response['nid'])
     updated_node = $apci_session.node_get(response['nid'])

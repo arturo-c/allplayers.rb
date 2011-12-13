@@ -14,7 +14,7 @@ class ApcirClient < AllPlayers::Client
 
   def file_get(fid, file_contents = true)
     #[GET] {endpoint}/file/{fid}
-    file = get 'file/' + fid.to_s(), {:file_contents => file_contents}
+    file = get 'file/' + fid.to_s, {:file_contents => file_contents.to_s}
     if file_contents
       file['contents'] = ActiveSupport::Base64.decode64(file['file'])
     end
