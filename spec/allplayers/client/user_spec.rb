@@ -140,6 +140,7 @@ describe AllPlayers::Client do
           'postal_code' => {'0' => {'value' => '75067'}},
           'country' => {'0' => {'value' => 'us'}},
         },
+        :type => 'profile'
       }
       response = $apci_session.node_update(nid, params)
 

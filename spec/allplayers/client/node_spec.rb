@@ -29,7 +29,7 @@ describe AllPlayers::Client do
       node = $node
 
       body = $body + ' Testing update, blah, blah, blah.'
-      more_params = { :body => body }
+      more_params = { :title => $title, :body => body, :type => 'book' }
       update_response = $apci_session.node_update(node['nid'], more_params)
       update_response['nid'].should == node['nid']
       updated_node = $apci_session.node_get(node['nid'])
