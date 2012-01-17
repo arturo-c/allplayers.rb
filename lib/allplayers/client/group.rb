@@ -42,6 +42,17 @@ module AllPlayers
       #post 'groups', {:group => required_params.merge(more_params)}
 
     end
+
+    def group_create_public(title, description, location, categories, more_params = {})
+      required_params = {
+        :title => title,
+        :description => description,
+        :location => location,
+        :category => categories,
+      }
+      post 'groups', required_params.merge(more_params)
+    end
+
     def group_roles_list(nid, uid = nil)
       #[GET] {endpoint}/node/{nid}/roles(/uid)
       if uid.nil?
