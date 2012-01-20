@@ -2,7 +2,7 @@ module AllPlayers
   module Event
     def event_create(title, description, groups, date_start, date_end, more_params = {})
       required_params = {
-        :gids => groups,
+        :groups => groups,
         :title => title,
         :description => description,
         :date_time => {
