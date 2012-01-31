@@ -85,18 +85,7 @@ describe AllPlayers::Client do
       end
 
       it "should be able to have a role assigned in a group." do
-        role_name = 'Volunteer'
-
-        # Get a rid to assign.
-        rid = nil
-
-        $roles['item'].each do | role |
-          if role['name'] == role_name
-            rid = role['rid']
-          end
-        end
-
-        response = $apci_session.user_group_role_add($user['uid'], $group['nid'], rid) unless rid.nil?
+        response = $apci_session.user_group_role_add($user['uid'], $group['nid'], $roles['item'].first['rid'])
 
         # Test with a user filter.
         user_role_names = []
@@ -105,7 +94,7 @@ describe AllPlayers::Client do
         end
 
         ['1', 'role already granted'].include?(response).should == TRUE
-        user_role_names.include?(role_name).should == TRUE
+        user_role_names.include?($roles['item'].first['name']).should == TRUE
       end
     end
   end
