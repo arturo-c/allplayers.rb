@@ -38,11 +38,13 @@ module AllPlayers
         else
           response = RestClient.send(verb, uri.to_s, headers)
         end
+        # Had to remove any html tags before the xml because xmlsimple was reading the hmtl errors on pdup and was crashing.
+        xml_response =  '<?xml' + response.split("<?xml").last
         # @TODO - Review this logic - Update the cookies.
         @session_cookies.merge!(response.cookies) unless response.cookies.empty?
         # @TODO - There must be a way to change the base object (XML string to
         #   Hash) while keeping the methods...
-        XmlSimple.xml_in(response, { 'ForceArray' => ['item'] })
+        XmlSimple.xml_in(xml_response, { 'ForceArray' => ['item'] })
       rescue REXML::ParseException => xml_err
         # XML Parser error
         raise "Failed to parse server response."
