@@ -40,6 +40,8 @@ module AllPlayers
         end
         # Had to remove any html tags before the xml because xmlsimple was reading the hmtl errors on pdup and was crashing.
         xml_response =  '<?xml' + response.split("<?xml").last
+        html_response = response.split("<?xml").first
+        puts html_response
         # @TODO - Review this logic - Update the cookies.
         @session_cookies.merge!(response.cookies) unless response.cookies.empty?
         # @TODO - There must be a way to change the base object (XML string to
