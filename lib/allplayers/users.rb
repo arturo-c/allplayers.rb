@@ -46,6 +46,11 @@ module AllPlayers
       #[GET] {endpoint}/user/{uid}
       get 'user/' + uid.to_s()
     end
+
+    def public_user_get(uuid = nil, email = nil)
+      get 'users/' + uuid.to_s() if !uuid.nil?
+      get 'users', {:email => email} if !email.nil?
+    end
     
     def user_list(parameters, fields = nil)
       filters = {:parameters => parameters}
@@ -54,6 +59,10 @@ module AllPlayers
       get 'user', filters
     end
     
+    def public_user_children_list(uuid)
+      get 'users/' + uuid.to_s() + '/children'
+    end
+
     def user_groups_list(uid)
       #[GET] {endpoint}/user/{uid}/groups
       get 'user/' + uid.to_s() + '/groups'

@@ -212,30 +212,32 @@ module ImportActions
     prefixes.each {|prefix|
       parent_description = prefix.split('_').join(' ').strip.capitalize
       if row.has_key?(prefix + 'uid')
-        children_uids = user_children_list(row[prefix + 'uid'])
-        next if children_uids.nil? || !children_uids.has_key?('item')
-        children_uids['item'].each {|child_uid|
-          if (matched_uid.nil? || matched_uid != child_uid['id'])
-            child = user_get(child_uid['id'])
-            system = {}
-            system['first_name'] = child['field_firstname'] if child.has_key?('field_firstname')
-            system['last_name'] = child['field_lastname'] if child.has_key?('field_lastname')
-            if (system != import)
-              # Keep looking
-              next
+        parent = self.public_user_get(nil, row[prefix + 'email_address'])
+        children = public_user_children_list(parent['item'].first['uuid'])
+        next if children.nil? || children.length < 0
+        children.each do |uuid, child|
+          kid = child['item'].first['item'].first
+            child_id = email_to_uid(kid['email'])
+            if (matched_uid.nil? || matched_uid != child_id)
+              system = {}
+              system['first_name'] = kid['firstname'] if kid.has_key?('firstname')
+              system['last_name'] = kid['lastname'] if kid.has_key?('lastname')
+              if (system != import)
+                # Keep looking
+                next
+              end
             end
-          end
-          # Found it
-          @logger.info(get_row_count.to_s) {parent_description + ' has matching child: ' + description + ' ' + row['first_name'] + ' ' + row['last_name']}
-          if matched_uid.nil?
-            matched_uid = child_uid['id']
-          end
-          if !child.nil?
-            ret = {'mail' => child['mail'], 'uid' => matched_uid } if ret.nil?
-          end
-          matched_parents.push(prefix)
-          break
-        }
+            # Found it
+            @logger.info(get_row_count.to_s) {parent_description + ' has matching child: ' + description + ' ' + row['first_name'] + ' ' + row['last_name']}
+            if matched_uid.nil?
+              matched_uid = child_id
+            end
+            if !child.nil?
+              ret = {'mail' => child['item'].first['email'], 'uuid' => matched_uid } if ret.nil?
+            end
+            matched_parents.push(prefix)
+            break
+        end
       end
     }
     # Add existing child to other parent if needed.
