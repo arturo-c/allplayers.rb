@@ -233,7 +233,7 @@ module ImportActions
               matched_uid = child_id
             end
             if !child.nil?
-              ret = {'mail' => child['item'].first['email'], 'uuid' => matched_uid } if ret.nil?
+              ret = {'mail' => kid['email'], 'uid' => matched_uid } if ret.nil?
             end
             matched_parents.push(prefix)
             break
