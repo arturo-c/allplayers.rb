@@ -95,8 +95,11 @@ module AllPlayers
       post 'node/' + nid.to_s() + '/addrole/' + uid.to_s() + '/' + rid.to_s(), options
     end
 
-    def public_user_get(uuid = nil, email = nil)
+    def public_user_get(uuid = nil)
       get 'users/' + uuid.to_s() if !uuid.nil?
+    end
+
+    def public_user_get_email(email = nil)
       get 'users', {:email => email} if !email.nil?
     end
 

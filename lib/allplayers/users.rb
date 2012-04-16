@@ -46,21 +46,12 @@ module AllPlayers
       #[GET] {endpoint}/user/{uid}
       get 'user/' + uid.to_s()
     end
-
-    def public_user_get(uuid = nil, email = nil)
-      get 'users/' + uuid.to_s() if !uuid.nil?
-      get 'users', {:email => email} if !email.nil?
-    end
     
     def user_list(parameters, fields = nil)
       filters = {:parameters => parameters}
       filters[:fields] = fields unless fields.nil?
       #[GET] {endpoint}/user?fields=uid,name,mail&parameters[uid]=1
       get 'user', filters
-    end
-    
-    def public_user_children_list(uuid)
-      get 'users/' + uuid.to_s() + '/children'
     end
 
     def user_groups_list(uid)
@@ -80,6 +71,28 @@ module AllPlayers
     
     def user_delete(uid)
       delete 'user/' + uid.to_s
+    end
+
+    def public_user_get_email(email = nil)
+      get 'users', {:email => email} if !email.nil?
+    end
+
+    def public_user_get(uuid = nil)
+      get 'users/' + uuid.to_s() if !uuid.nil?
+    end
+
+    def public_user_children_list(uuid)
+      get 'users/' + uuid.to_s() + '/children'
+    end
+
+    def public_children_add(parent_uuid, firstname, lastname, birthday, gender, more_params = {})
+      required_params = {
+        :firstname => firstname,
+        :lastname => lastname,
+        :birthday => birthday,
+        :gender => gender,
+      }
+      post 'users/' + parent_uuid.to_s() + '/addchild', required_params.merge(more_params)
     end
     
   end

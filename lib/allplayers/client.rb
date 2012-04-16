@@ -58,7 +58,7 @@ module AllPlayers
         end
         xml_response =  '<?xml' + response.split("<?xml").last
         html_response = response.split("<?xml").first
-        puts html_response if !html_response.empty
+        puts html_response if !html_response.empty?
         # @TODO - Review this logic - Update the cookies.
         @session_cookies.merge!(response.cookies) unless response.cookies.empty?
         # @TODO - There must be a way to change the base object (XML string to

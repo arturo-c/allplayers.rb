@@ -212,31 +212,32 @@ module ImportActions
     prefixes.each {|prefix|
       parent_description = prefix.split('_').join(' ').strip.capitalize
       if row.has_key?(prefix + 'uid')
-        parent = self.public_user_get(nil, row[prefix + 'email_address'])
+        parent = self.public_user_get_email(row[prefix + 'email_address'])
         children = public_user_children_list(parent['item'].first['uuid'])
-        next if children.nil? || children.length < 0
-        children.each do |uuid, child|
-          kid = child['item'].first['item'].first
-            child_id = email_to_uid(kid['email'])
-            if (matched_uid.nil? || matched_uid != child_id)
-              system = {}
-              system['first_name'] = kid['firstname'] if kid.has_key?('firstname')
-              system['last_name'] = kid['lastname'] if kid.has_key?('lastname')
-              if (system != import)
-                # Keep looking
-                next
-              end
+        next if children.nil? || children.length <= 0
+        children['item'].each do |child|
+          kid = self.public_user_get(child['uuid'])
+          next if kid['firstname'].nil?
+          child_id = email_to_uid(kid['email'])
+          if (matched_uid.nil? || matched_uid != child_id)
+            system = {}
+            system['first_name'] = kid['firstname'] if kid.has_key?('firstname')
+            system['last_name'] = kid['lastname'] if kid.has_key?('lastname')
+            if (system != import)
+              # Keep looking
+              next
             end
             # Found it
-            @logger.info(get_row_count.to_s) {parent_description + ' has matching child: ' + description + ' ' + row['first_name'] + ' ' + row['last_name']}
+            @logger.info(get_row_count.to_s) {parent_description + ' has matching child: ' + description + ' ' + row['first_name'] + ' ' + row['last_name']} if ret.nil?
             if matched_uid.nil?
               matched_uid = child_id
             end
             if !child.nil?
-              ret = {'mail' => kid['email'], 'uid' => matched_uid } if ret.nil?
+              ret = {'mail' => kid['email'], 'uid' => matched_uid }
             end
             matched_parents.push(prefix)
             break
+          end
         end
       end
     }
@@ -644,15 +645,33 @@ module ImportActions
       # Avoid creating duplicate children.
       existing_child = self.verify_children(row, description)
       return existing_child unless existing_child.nil?
-
-      response = self.user_create(
-        row['email_address'],
-        row['first_name'],
-        row['last_name'],
-        row['gender'],
-        birthdate,
-        more_params
-      )
+      if row.has_key?('email_address') && row.has_key?('parent_1_uid')
+        more_params['email'] = row['email_address']
+      end
+      if row.has_key?('parent_1_uid')
+        parent = self.public_user_get_email(row['parent_1_email_address'])
+        $child_public_api = self.public_children_add(
+          parent['item'].first['uuid'],
+          row['first_name'],
+          row['last_name'],
+          birthdate,
+          row['gender'],
+          more_params
+        )
+        puts $child_public_api.to_yaml
+        child_uid = email_to_uid($child_public_api['email'])
+        response = self.user_get(child_uid)
+        puts response.to_yaml
+      else
+        response = self.user_create(
+          row['email_address'],
+          row['first_name'],
+          row['last_name'],
+          row['gender'],
+          birthdate,
+          more_params
+        )
+      end
 
       if !response.nil?  && response.has_key?('uid')
         # Cache the new users UID while we have the lock.
@@ -664,7 +683,7 @@ module ImportActions
       increment_stat('Users')
       increment_stat(description + 's') if description != 'User'
 
-      response['parenting_1_response'] = self.user_parent_add(response['uid'], row['parent_1_uid']) if row.has_key?('parent_1_uid')
+      # Don't add parent 1, already added with public_children_add.
       response['parenting_2_response'] = self.user_parent_add(response['uid'], row['parent_2_uid']) if row.has_key?('parent_2_uid')
     end
     
