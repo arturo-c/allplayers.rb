@@ -94,5 +94,24 @@ module AllPlayers
       #[POST] {endpoint}/node/{nid}/addrole/{uid}/{rid}
       post 'node/' + nid.to_s() + '/addrole/' + uid.to_s() + '/' + rid.to_s(), options
     end
+
+    def public_user_get(uuid = nil, email = nil)
+      get 'users/' + uuid.to_s() if !uuid.nil?
+      get 'users', {:email => email} if !email.nil?
+    end
+
+    def public_children_add(parent_uuid, firstname, lastname, birthday, gender, more_params = {})
+      required_params = {
+        :firstname => firstname,
+        :lastname => lastname,
+        :birthday => birthday,
+        :gender => gender,
+      }
+      post 'users/' + parent_uuid.to_s() + '/addchild', required_params.merge(more_params)
+    end
+
+    def public_user_children_list(uuid)
+      get 'users/' + uuid.to_s() + '/children'
+    end
   end
 end

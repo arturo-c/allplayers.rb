@@ -169,76 +169,81 @@ describe AllPlayers::Client do
 
     describe "Child" do
       it "should be created properly." do
-        parent_1_uid = $user['uid']
-        more_params = {}
+        user = $apci_session.user_get($user['uid'])
+        parent = $apci_session.public_user_get(nil, user['mail'])
+        parent_1_uuid = parent['item'].first['uuid']
         random_first = (0...8).map{65.+(rand(25)).chr}.join
-        # Make an 11 year old.
-        birthday = Date.today - (365 * 11)
-        response = $apci_session.user_create(
-          random_first + '@example.com',
-          random_first,
-          'FakeLast',
-          'Male',
-          birthday,
-          more_params
-        )
-        response['uid'].should_not == nil
-
-        #Assign parent.
-        parenting_response = $apci_session.user_parent_add(response['uid'], parent_1_uid)
-        user = $apci_session.user_get(response['uid'])
-
-        # Check parent.
-        profile = $apci_session.user_get_profile(response['uid'])
-        profile['field_parents'].to_s.include?(parent_1_uid.to_s).should == TRUE
-
-        # Check calculated username is only first.
-        user['apci_user_username'].should == random_first
-
-        # Check name.
-        profile['field_firstname']['item'].first['value'].should == random_first
-        profile['field_lastname']['item'].first['value'].should == 'FakeLast'
-        # Check birthday.
-        Date.parse(profile['field_birth_date']['item'].first['value']).to_s.should == birthday.to_s
-        # Check gender (1 = Male, 2 = Female) <= Lame
-        profile['field_user_gender']['item'].first['value'].should == '1'
-      end
-      it "should be created properly using an AllPlayers.net email." do
-        parent_1_uid = $user['uid']
         more_params = {
-          :email_alternative => {:value => 1}, # Allplayers.net email
-          }
-        random_first = (0...8).map{65.+(rand(25)).chr}.join
-        # Make an 11 year old.
-        birthday = Date.today - (365 * 11)
-        response = $apci_session.user_create(
-          nil, # No email address
+          :email => random_first + '@example.com',
+        }
+        birthday = '2004-05-21'
+        $child = $apci_session.public_children_add(
+          parent_1_uuid,
           random_first,
           'FakeLast',
-          'Male',
           birthday,
+          'm',
           more_params
         )
-        response['uid'].should_not == nil
+        $child['uuid'].should_not == nil
 
-        #Assign parent.
-        parenting_response = $apci_session.user_parent_add(response['uid'], parent_1_uid)
-        user = $apci_session.user_get(response['uid'])
+        # Get children from parent.
+        children = $apci_session.public_user_children_list(parent_1_uuid)
+        child_uuid = children['item'].first['uuid']
 
-        # Check parent.
-        profile = $apci_session.user_get_profile(response['uid'])
-        profile['field_parents'].to_s.include?(parent_1_uid.to_s).should == TRUE
+        # Verify parent child relationship.
+        child_uuid.should == $child['uuid']
+
+        # Check email.
+        $child['email'].should == random_first + '@example.com'
 
         # Check calculated username is only first.
-        user['apci_user_username'].should == random_first
+        $child['nickname'].should == random_first
 
         # Check name.
-        profile['field_firstname']['item'].first['value'].should == random_first
-        profile['field_lastname']['item'].first['value'].should == 'FakeLast'
-        # Check birthday.
-        Date.parse(profile['field_birth_date']['item'].first['value']).to_s.should == birthday.to_s
-        # Check gender (1 = Male, 2 = Female) <= Lame
-        profile['field_user_gender']['item'].first['value'].should == '1'
+        $child['firstname'].should == random_first
+        $child['lastname'].should == 'FakeLast'
+
+        # Check gender.
+        $child['gender'].should == 'male'
+      end
+
+      it "should be created properly using an AllPlayers.net email." do
+        user = $apci_session.user_get($user['uid'])
+        parent = $apci_session.public_user_get(nil, user['mail'])
+        parent_1_uuid = parent['item'].first['uuid']
+        random_first = (0...8).map{65.+(rand(25)).chr}.join
+        birthday = '2004-05-21'
+        more_params = {}
+        $child = $apci_session.public_children_add(
+          parent_1_uuid,
+          random_first,
+          'FakeLast',
+          birthday,
+          'm',
+          more_params
+        )
+        $child['uuid'].should_not == nil
+
+        # Get children from parent.
+        children = $apci_session.public_user_children_list(parent_1_uuid)
+        child_uuid = children['item'].last['uuid']
+
+        # Verify parent child relationship.
+        child_uuid.should == $child['uuid']
+
+        # Check email.
+        $child['email'].should == random_first + 'FakeLast@allplayers.net'
+
+        # Check calculated username is only first.
+        $child['nickname'].should == random_first
+
+        # Check name.
+        $child['firstname'].should == random_first
+        $child['lastname'].should == 'FakeLast'
+
+        # Check gender.
+        $child['gender'].should == 'male'
       end
     end
 
