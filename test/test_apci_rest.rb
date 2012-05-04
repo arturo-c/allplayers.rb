@@ -324,45 +324,6 @@ class TestApcirClient < Test::Unit::TestCase
     assert_equal('1', profile['field_user_gender']['item'].first['value'])
   end
 
-  def test_user_create_child_allplayers_dot_net
-    # @TODO - Create the parent, this is glenn...
-    parent_1_uid = 10995
-    more_params = {
-      :email_alternative => {:value => 1}, # Allplayers.net email
-      }
-    random_first = (0...8).map{65.+(rand(25)).chr}.join
-    # Make an 11 year old.
-    birthday = Date.today - (365 * 11)
-    response = $apci_session.user_create(
-      nil, # No email address
-      random_first,
-      'FakeLast',
-      'Male',
-      birthday,
-      more_params
-    )
-    assert_not_nil(response['uid'])
-
-    #Assign parent.
-    parenting_response = $apci_session.user_parent_add(response['uid'], parent_1_uid)
-    user = $apci_session.user_get(response['uid'])
-
-    # Check parent.
-    profile = $apci_session.user_get_profile(response['uid'])
-    assert(profile['field_parents'].to_s.include?(parent_1_uid.to_s))
-
-    # Check calculated username is only first.
-    assert_equal(random_first, user['apci_user_username'])
-
-    # Check name.
-    assert_equal(random_first, profile['field_firstname']['item'].first['value'])
-    assert_equal('FakeLast', profile['field_lastname']['item'].first['value'])
-    # Check birthday.
-    assert_equal(birthday.to_s, Date.parse(profile['field_birth_date']['item'].first['value']).to_s)
-    # Check gender (1 = Male, 2 = Female) <= Lame
-    assert_equal('1', profile['field_user_gender']['item'].first['value'])
-  end
-
   def test_node_get
     # node id 6 should exist, fragile...
     node = $apci_session.node_get(6)

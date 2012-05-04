@@ -167,6 +167,7 @@ describe AllPlayers::Client do
       end
     end
 
+<<<<<<< HEAD
     describe "Children" do
       before :all do
         $parent_1_uid = $user['uid']
@@ -177,6 +178,21 @@ describe AllPlayers::Client do
         $child = $apci_session.user_create(
           $child_random_first + '@example.com',
           $child_random_first,
+=======
+    describe "Child" do
+      it "should be created properly." do
+        user = $apci_session.user_get($user['uid'])
+        parent = $apci_session.public_user_get_email(user['mail'])
+        parent_1_uuid = parent['item'].first['uuid']
+        random_first = (0...8).map{65.+(rand(25)).chr}.join
+        more_params = {
+          :email => random_first + '@example.com',
+        }
+        birthday = '2004-05-21'
+        $child = $apci_session.public_children_add(
+          parent_1_uuid,
+          random_first,
+>>>>>>> 22316f4... [#28854219] Fix error on function call and remove old test to add children with allplayers net email.
           'FakeLast',
           'Male',
           $child_birthday,
@@ -221,10 +237,16 @@ describe AllPlayers::Client do
       end
 
       it "should be created properly using an AllPlayers.net email." do
+<<<<<<< HEAD
         parent_1_uid = $user['uid']
         more_params = {
           :email_alternative => {:value => 1}, # Allplayers.net email
           }
+=======
+        user = $apci_session.user_get($user['uid'])
+        parent = $apci_session.public_user_get_email(user['mail'])
+        parent_1_uuid = parent['item'].first['uuid']
+>>>>>>> 22316f4... [#28854219] Fix error on function call and remove old test to add children with allplayers net email.
         random_first = (0...8).map{65.+(rand(25)).chr}.join
         # Make an 11 year old.
         birthday = Date.today - (365 * 11)

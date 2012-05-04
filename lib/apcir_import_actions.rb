@@ -658,10 +658,8 @@ module ImportActions
           row['gender'],
           more_params
         )
-        puts $child_public_api.to_yaml
         child_uid = email_to_uid($child_public_api['email'])
         response = self.user_get(child_uid)
-        puts response.to_yaml
       else
         response = self.user_create(
           row['email_address'],
