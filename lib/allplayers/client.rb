@@ -1,4 +1,5 @@
 require 'rubygems'
+require 'bundler/setup'
 require 'restclient'
 require 'addressable/uri'
 require 'allplayers/auth/session'
