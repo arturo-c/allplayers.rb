@@ -10,11 +10,11 @@ sudo apt-get install ruby libopenssl-ruby
 # nokogiri requirements
 sudo apt-get install libxslt-dev libxml2-dev
 
-sudo gem install xml-simple addressable highline rest-client activesupport i18n nokogiri
+# install bundler
+sudo gem install bundler
 
-To test,
-
-sudo gem install ci_reporter
+# run bundler
+bundler install
 
 export APCI_REST_TEST_HOST=host.allplayers.com
 export APCI_REST_TEST_USER=user
