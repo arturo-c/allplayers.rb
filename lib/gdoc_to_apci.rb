@@ -113,7 +113,8 @@ opts = GetoptLong.new(
     [ '--gdoc-pass',       GetoptLong::REQUIRED_ARGUMENT],
     [ '--skip-rows', '-s', GetoptLong::REQUIRED_ARGUMENT],
     [ '--threads',         GetoptLong::REQUIRED_ARGUMENT],
-    [ '--verbose', '-v',   GetoptLong::NO_ARGUMENT]
+    [ '--verbose', '-v',   GetoptLong::NO_ARGUMENT],
+    [ '--header',          GetoptLong::OPTIONAL_ARGUMENT]
   )
 
 # Handle default argument => host to target for import and optional user,
@@ -137,6 +138,8 @@ opts.each do |opt, arg|
       $thread_count = arg.to_i
     when '--verbose'
       logger_level = Logger::DEBUG
+    when '--header'
+      $header = arg
   end
 end
 
@@ -151,7 +154,7 @@ def apci_imports_with_rails_app(pass, gdoc_mail, gdoc_pass)
     host = ARGV.shift.split('@')
     user = host.shift if host.length > 1
     puts 'Connecting to ' + host[0] + '...'
-    @apci_session = ApcirClient.new(nil, host[0])
+    @apci_session = ApcirClient.new(nil, host[0], 'https://', 'session', $header)
   end
   # End arguments
 
