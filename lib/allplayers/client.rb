@@ -13,15 +13,19 @@ module AllPlayers
     include AllPlayers::Events
     include AllPlayers::Users
     include AllPlayers::Groups
-    def initialize(api_key = nil, server = 'sandbox.allplayers.com', protocol = 'https://', auth = 'session', header = {})
+    def initialize(api_key = nil, server = 'sandbox.allplayers.com', protocol = 'https://', auth = 'session')
       if (auth == 'session')
         extend AllPlayers::Auth::Session
       end
       @base_uri = Addressable::URI.join(protocol + server, '')
       @key = api_key # TODO - Not implemented in API yet.
       @session_cookies = {}
-      headers = {header.split("=").first => header.split("=").last}
-      @header = headers
+      @headers = {}
+    end
+
+    # Add header method, preferably use array of symbols, e.g. {:USER-AGENT => 'RubyClient'}.
+    def add_headers(header = {})
+      @headers.merge!(header) unless header.nil?
     end
 
     # GET, PUT, POST, DELETE, etc.
@@ -51,7 +55,7 @@ module AllPlayers
         end
         uri.query_values = query unless query.empty?
         headers.merge!({:cookies => @session_cookies}) unless @session_cookies.empty?
-        headers.merge!(@header) unless @header.empty?
+        headers.merge!(@headers) unless @headers.empty?
         RestClient.log = @log
         RestClient.open_timeout = 600
         RestClient.timeout = 600

@@ -114,7 +114,7 @@ opts = GetoptLong.new(
     [ '--skip-rows', '-s', GetoptLong::REQUIRED_ARGUMENT],
     [ '--threads',         GetoptLong::REQUIRED_ARGUMENT],
     [ '--verbose', '-v',   GetoptLong::NO_ARGUMENT],
-    [ '--header',          GetoptLong::OPTIONAL_ARGUMENT]
+    [ '--user-agent',          GetoptLong::OPTIONAL_ARGUMENT]
   )
 
 # Handle default argument => host to target for import and optional user,
@@ -122,6 +122,7 @@ opts = GetoptLong.new(
 user = Etc.getlogin
 pass = nil
 @gdoc_mail, @gdoc_pass = nil
+$user_agent = nil
 opts.each do |opt, arg|
   case opt
     when '--help'
@@ -138,8 +139,8 @@ opts.each do |opt, arg|
       $thread_count = arg.to_i
     when '--verbose'
       logger_level = Logger::DEBUG
-    when '--header'
-      $header = arg
+    when '--user-agent'
+      $user_agent = arg
   end
 end
 
@@ -154,7 +155,8 @@ def apci_imports_with_rails_app(pass, gdoc_mail, gdoc_pass)
     host = ARGV.shift.split('@')
     user = host.shift if host.length > 1
     puts 'Connecting to ' + host[0] + '...'
-    @apci_session = ApcirClient.new(nil, host[0], 'https://', 'session', $header)
+    @apci_session = ApcirClient.new(nil, host[0], 'https://', 'session')
+    @apci_session.add_headers({:API_USER_AGENT => $user_agent}) if !$user_agent.nil?
   end
   # End arguments
 
