@@ -287,7 +287,6 @@ module ImportActions
     else
       increment_row_count
     end
-    @logger.info(get_row_count.to_s) {'Processing...'}
     row = row_array.to_hash(column_defs)
     # Convert everything to a string and strip whitespace.
     row.each { |key,value| row.store(key,value.to_s.strip)}
@@ -318,12 +317,13 @@ module ImportActions
     end
   end
 
-  def import_sheet(sheet, name, g = nil, wuri = nil)
-
+  def import_sheet(sheet, name, g = nil, wuri = nil, run_character = nil)
+    run_char = run_character
+    run_char = $run_character unless $run_character.nil?
     start_time = Time.now
     @logger.debug('import') {'Started ' + start_time.to_s}
 
-
+    set_row_count(0)
     increment_row_count
     # Pull the first row and chunk it, it's just extended field descriptions.
     @logger.info(get_row_count.to_s) {"Skipping Descriptions"}
@@ -368,7 +368,16 @@ module ImportActions
                row_count+=1
              end
              unless row.nil?
-               self.import_mixed_user(self.prepare_row(row, column_defs, row_count))
+               formatted_row = self.prepare_row(row, column_defs, row_count)
+               if run_char.nil?
+                 self.import_mixed_user(formatted_row)
+               else
+                 if formatted_row['run_character'].to_s == run_char.to_s
+                   self.import_mixed_user(formatted_row)
+                 else
+                   @logger.info(get_row_count.to_s) {'Skipping row ' + row_count.to_s}
+                 end
+               end
              else
                break
              end
@@ -394,7 +403,7 @@ module ImportActions
     elsif (name == 'Events')
       #elsif (2 <= (column_defs & ['Title', 'Groups Involved', 'Duration (in minutes)']).length)
       @logger.info(get_row_count.to_s) {"Importing Events\n"}
-      sheet.each {|row| 
+      sheet.each {|row|
         row_count+=1
         response = self.import_event(self.prepare_row(row, column_defs))
         unless g.nil? || wuri.nil?
@@ -423,6 +432,7 @@ module ImportActions
   end
 
   def import_mixed_user(row)
+    @logger.info(get_row_count.to_s) {'Processing...'}
     # Import Users (Make sure parents come first).
     responses = {}
     ['parent_1_', 'parent_2_',  'participant_'].each {|prefix|
@@ -684,7 +694,7 @@ module ImportActions
       # Don't add parent 1, already added with public_children_add.
       response['parenting_2_response'] = self.user_parent_add(response['uid'], row['parent_2_uid']) if row.has_key?('parent_2_uid')
     end
-    
+
     return response
   rescue RestClient::Exception => e
     @logger.error(get_row_count.to_s) {'Failed to import ' + description + ': ' + e.message}

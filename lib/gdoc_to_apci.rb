@@ -114,7 +114,8 @@ opts = GetoptLong.new(
     [ '--skip-rows', '-s', GetoptLong::REQUIRED_ARGUMENT],
     [ '--threads',         GetoptLong::REQUIRED_ARGUMENT],
     [ '--verbose', '-v',   GetoptLong::NO_ARGUMENT],
-    [ '--user-agent',          GetoptLong::OPTIONAL_ARGUMENT]
+    [ '--user-agent',      GetoptLong::OPTIONAL_ARGUMENT],
+    [ '--run',             GetoptLong::OPTIONAL_ARGUMENT]
   )
 
 # Handle default argument => host to target for import and optional user,
@@ -123,6 +124,7 @@ user = Etc.getlogin
 pass = nil
 @gdoc_mail, @gdoc_pass = nil
 $user_agent = nil
+$run_character = nil
 opts.each do |opt, arg|
   case opt
     when '--help'
@@ -141,13 +143,16 @@ opts.each do |opt, arg|
       logger_level = Logger::DEBUG
     when '--user-agent'
       $user_agent = arg
+    when '--run'
+      $run_character = arg
   end
 end
 
-def apci_imports_with_rails_app(pass, gdoc_mail, gdoc_pass)
+def apci_imports_with_rails_app(pass, gdoc_mail, gdoc_pass, run_character = nil)
   logger_level = nil
   @gdoc_mail = gdoc_mail
   @gdoc_pass = gdoc_pass
+  $run_character = run_character
   if ARGV.length != 1
     puts "No host argument, default used (try --help)"
     @apci_session = ApcirClient.new
