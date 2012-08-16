@@ -13,6 +13,8 @@
 #  -p                          session authentication password
 #      --gdoc-mail             Google Docs login name (email)
 #      --gdoc-pass             Google Docs password
+#      --gdoc-sheet            Google Docs spreadsheet
+#      --gdoc-wsheet           Google Docs worksheet
 #
 # HOST: The target server for imported items (e.g. demo.allplayers.com).
 
@@ -100,10 +102,14 @@ def google_docs_import
         worksheet = g.worksheet_feed_to_a(cells_xml)
         @apci_session.import_sheet(worksheet, cmd, g, w_choices[cmd])
       end
+      if @wsheet
+        break
+      end
+    end # End Worksheet import menu
+    if @sheet
+      break
     end
-    # End Worksheet import menu
-  end
-  # End Spreadsheet search menu
+  end # End Spreadsheet search menu
 end
 
 opts = GetoptLong.new(
@@ -111,6 +117,8 @@ opts = GetoptLong.new(
     [ '-p',                GetoptLong::REQUIRED_ARGUMENT],
     [ '--gdoc-mail',       GetoptLong::REQUIRED_ARGUMENT],
     [ '--gdoc-pass',       GetoptLong::REQUIRED_ARGUMENT],
+    [ '--gdoc-sheet',      GetoptLong::REQUIRED_ARGUMENT],
+    [ '--gdoc-wsheet',     GetoptLong::REQUIRED_ARGUMENT],
     [ '--skip-rows', '-s', GetoptLong::REQUIRED_ARGUMENT],
     [ '--threads',         GetoptLong::REQUIRED_ARGUMENT],
     [ '--verbose', '-v',   GetoptLong::NO_ARGUMENT],
@@ -122,6 +130,7 @@ opts = GetoptLong.new(
   # (i.e. user@sandbox.allplayers.com).
 user = Etc.getlogin
 pass = nil
+@sheet = @wsheet = nil
 @gdoc_mail, @gdoc_pass = nil
 $user_agent = nil
 $run_character = nil
@@ -135,6 +144,10 @@ opts.each do |opt, arg|
       @gdoc_mail = arg
     when '--gdoc-pass'
       @gdoc_pass = arg
+    when '--gdoc-sheet'
+      @sheet = arg
+    when '--gdoc-wsheet'
+      @wsheet = arg
     when '--skip-rows'
       $skip_rows = arg.to_i
     when '--threads'
@@ -148,10 +161,8 @@ opts.each do |opt, arg|
   end
 end
 
-def apci_imports_with_rails_app(pass, gdoc_mail, gdoc_pass, run_character = nil)
+def apci_imports_with_rails_app(pass, run_character = nil)
   logger_level = nil
-  @gdoc_mail = gdoc_mail
-  @gdoc_pass = gdoc_pass
   $run_character = run_character
   if ARGV.length != 1
     puts "No host argument, default used (try --help)"
@@ -194,14 +205,6 @@ def apci_imports_with_rails_app(pass, gdoc_mail, gdoc_pass, run_character = nil)
   @apci_session.interactive_login(user,pass)
 
   google_docs_import
-=begin
-  # Top level menu.
-  choose do |menu|
-    menu.prompt = "Where will we import from?"
-    menu.choice(:'Google Docs') { google_docs_import }
-    menu.choices(:'.ODS', :'.CSV') { abort("Sorry, don't have that yet.") }
-  end
-=end
 
   logger.info('import') { "Logout from APCI Server" }
   @apci_session.logout
@@ -209,6 +212,6 @@ def apci_imports_with_rails_app(pass, gdoc_mail, gdoc_pass, run_character = nil)
   logger.close
 end
 
-if @wsheet.nil? and @sheet.nil? and @gdoc_mail
-  apci_imports_with_rails_app(pass, @gdoc_mail, @gdoc_pass)
+if @gdoc_mail and @gdoc_pass
+  apci_imports_with_rails_app(pass)
 end
