@@ -14,7 +14,7 @@ sudo apt-get install libxslt-dev libxml2-dev
 sudo gem install bundler
 
 # run bundler
-bundler install
+bundle install
 
 export APCI_REST_TEST_HOST=host.allplayers.com
 export APCI_REST_TEST_USER=user
