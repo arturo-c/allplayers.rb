@@ -21,3 +21,7 @@ export APCI_REST_TEST_USER=user
 export APCI_REST_TEST_PASS=password
 
 then 'rake test'.
+
+# execute an import
+cd lib
+bundle exec 'gdoc_to_apci.rb --gdoc-mail USERNAME@allplayers.com admin@www.a.USERNAME.allplayers.com'
