@@ -42,5 +42,23 @@ module AllPlayers
       #post 'groups', {:group => required_params.merge(more_params)}
       
     end
+
+    def group_create_public(title, description, location, categories, more_params = {})
+      required_params = {
+        :title => title,
+        :description => description,
+        :location => location,
+        :category => categories
+      }
+      post 'groups', required_params.merge(more_params)
+    end
+
+    def group_set_manager(group_uuid, user_uuid, remove_previous = false)
+      post 'groups/' + group_uuid.to_s + '/setmanager/' + user_uuid.to_s, {:remove_previous => remove_previous}
+    end
+
+    def group_clone(target_uuid, origin_uuid)
+      post 'groups/' + target_uuid + '/copy/' + origin_uuid
+    end
   end
 end

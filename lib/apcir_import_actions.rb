@@ -137,19 +137,6 @@ module ImportActions
   # Statistics about operations performed
   @@stats = {}
 
-  def interactive_login(user = nil, pass = nil)
-    if @session_cookies.empty?
-      user = ask("Enter your Allplayers.com e-mail / user:  ") { |q| q.echo = true } if user.nil?
-      pass = ask("Enter your Allplayers.com password:  ") { |q| q.echo = false } if pass.nil?
-      self.login( user, pass )
-    else
-      say 'Already logged in?'
-    end
-  rescue RestClient::Exception => e
-    pass = nil
-    retry
-  end
-
   def interactive_node_owner
     email = ask("Email for the owner of imported nodes:  ") { |q| q.echo = true }
     begin
@@ -317,7 +304,13 @@ module ImportActions
     end
   end
 
-  def import_sheet(sheet, name, g = nil, wuri = nil, run_character = nil)
+  def import_sheet(sheet, name, g = nil, wuri = nil, run_character = nil, skip_emails = nil)
+    if skip_emails.nil?
+      self.remove_headers({:NOTIFICATION_BYPASS => nil, :API_USER_AGENT => nil})
+    else
+      self.add_headers({:NOTIFICATION_BYPASS => 1, :API_USER_AGENT => 'AllPlayers-Import-Client'})
+    end
+
     run_char = run_character
     run_char = $run_character unless $run_character.nil?
     start_time = Time.now
@@ -349,7 +342,6 @@ module ImportActions
     end
 
     row_count = get_row_count
-
     # TODO - Detect sheet type / sanity check by searching column_defs
     if (name == 'Participant Information')
       # mixed sheet... FUN!
@@ -701,98 +693,70 @@ module ImportActions
   end
 
   def import_group(row)
-    # If importing to existing NID, just return spreadsheet values.
-    if row.has_key?('group_nid')
-      return {'title' => row['group_name'], 'nid' => row['group_nid']}
-    end
-
-    # Assign owner uid/name to group.
-    # TODO - Move node ownership into the apci_rest library.  All nodes should
-    # have an owner, generally not admin.
-    if row['uid']
+    if row['owner_uuid']
       begin
-        uid = row['uid'].to_i
-        owner = self.user_get(uid)
-        raise if !owner.has_key?('name')
+        owner = self.public_user_get(row['owner_uuid'])
+        raise if !owner.has_key?('uuid')
       rescue
-        puts "Couldn't get group owner: " + row['uid'].to_s
+        puts "Couldn't get group owner from UUID: " + row['owner_uuid'].to_s
         return {}
       end
     else
       puts 'Group import requires group owner'
       return {}
     end
+    location = row.key_filter('address_')
+    if location['zip'].nil?
+      @logger.error(get_row_count.to_s) {'Location ZIP required for group import.'}
+      return {}
+    end
 
-    more_params = {
-      'uid' => uid.to_s,
-      :name => owner['name'],
-    }
+    categories = row['group_categories'].split(',') unless row['group_categories'].nil?
+    if categories.nil?
+      @logger.error(get_row_count.to_s) {'Group Type required for group import.'}
+      return {}
+    end
+    more_params = {}
+    more_params['group_type'] = row['group_type'] unless row['group_type'].nil?
 
-    # TODO - Warn before creating duplicate named groups.
-
-    # Group Above
-    # TODO - Move node searching into a separate function.
     if row.has_key?('group_above') && !row['group_above'].empty?
-      # Lookup group by name (and group owner if possible)
-      nodes = node_list({
-          :type => 'group',
-          'title' => row['group_above'],
-        })
-      if nodes.has_key?('item') && nodes['item'].length == 1
-        @logger.info(get_row_count.to_s) {'Found group above: ' + row['group_above'] + 'at NID ' + nodes['item'].first['nid'].to_s}
-        more_params['field_group'] = {'0' => {'nid' => nodes['item'].first['nid'].to_s}}
+      if @groups_uuid_map.has_key?(row['group_above'])
+        @logger.info(get_row_count.to_s) {'Found group above: ' + row['group_above'] + 'at UUID ' + @groups_uuid_map[row['group_above']].to_s}
+        more_params['groups_above'][] = @groups_uuid_map[row['group_above']]
       else
         puts 'Row ' + get_row_count.to_s + "Couldn't find group above: " + row['group_above']
         return
       end
-    end
-
-    # Location fields
-    location = apci_location_map(row.key_filter('group_'))
-
-    # Set Custom type, if 'Other' type.
-    # TODO - Move this into apci_rest
-    type = row['group_type'].split(':') unless row['group_type'].nil?
-    if type
-      if (type[1] && type[0].downcase == 'other')
-        more_params.merge!({:spaces_preset_other => type[1]})
-      end
-    else
-      @logger.error(get_row_count.to_s) {'Group Type required for group import.'}
-      return {}
+    elsif row.has_key?('group_uuid') && !row['group_uuid'].empty?
+      more_params['groups_above'] = {'0' => row['group_uuid']}
     end
 
     @logger.info(get_row_count.to_s) {'Importing group: ' + row['group_name']}
-
-    response = self.group_create(
+    response = self.group_create_public(
       row['group_name'], # Title
       row['group_description'], # Description field
       location,
-      row['group_category'].strip.split(', '), # Category, comma separated as needed. TODO - Only return the first, because it's required and the second doesn't work.
-      type[0], # Spaces preset.
+      categories.last,
       more_params
     )
   rescue RestClient::Exception => e
     @logger.error(get_row_count.to_s) {'Failed to import group: ' + e.message}
   else
-    #log stuff!!
-    if (response && response.has_key?('nid'))
+    if (response && response.has_key?('uuid'))
       increment_stat('Groups')
-      @group_nid_map = Hash.new unless defined? @group_nid_map
-      @group_nid_map[row['group_name']] = response['nid']
-
-      # Assign Owner.
-      owner_group = {}
-      owner_group['uid'] = uid.to_s
-      owner_group['group_nid'] = response['nid']
-      owner_group['group_name'] = row['group_name']
-      owner_group['group_role'] = 'Admin'
-      response['owner'] = import_user_group_role(owner_group)
+      @group_uuid_map = Hash.new unless defined? @group_uuid_map
+      @group_uuid_map[row['group_name']] = response['uuid']
+      if row.has_key?('group_clone') && !row['group_clone'].empty?
+        @logger.info(get_row_count.to_s) {'Cloning settings from group: ' + row['group_clone']}
+        response = self.group_clone(
+          response['uuid'],
+          row['group_clone']
+        )
+      end
     end
   end
 
   def import_event(row)
-    puts row.to_yaml
 
     more_params = {}
     # Check Group

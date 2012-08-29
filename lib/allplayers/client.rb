@@ -19,13 +19,25 @@ module AllPlayers
       end
       @base_uri = Addressable::URI.join(protocol + server, '')
       @key = api_key # TODO - Not implemented in API yet.
-      @session_cookies = {}
       @headers = {}
+    end
+
+    def oauth_authenticate(consumer_key, consumer_secret, oauth_token, oauth_secret)
+      consumer = OAuth::Consumer.new(consumer_key, consumer_secret, :site => @base_uri, :http_method => :get)
+      @access_token = OAuth::AccessToken.new(consumer, oauth_token, oauth_secret)
+      @headers.merge!({'Accept' => 'application/json'})
     end
 
     # Add header method, preferably use array of symbols, e.g. {:USER-AGENT => 'RubyClient'}.
     def add_headers(header = {})
       @headers.merge!(header) unless header.nil?
+    end
+
+    # Remove headers from a session.
+    def remove_headers(headers = {})
+      headers.each do |header, value|
+        @headers.delete(header)
+      end
     end
 
     # GET, PUT, POST, DELETE, etc.
@@ -47,34 +59,40 @@ module AllPlayers
     end
 
     def request(verb, path, query = {}, payload = {}, headers = {})
-      begin
-        if path.to_s =~ /albums|announcements|broadcasts|events|groups|messages|photos|resources|users/i
-          uri = Addressable::URI.join(@base_uri, 'api/v1/rest/'+path.to_s)
-        else
-          uri = Addressable::URI.join(@base_uri, 'api/rest/'+path.to_s)
+      if path.to_s =~ /albums|announcements|broadcasts|events|groups|messages|photos|resources|users/i
+        uri = Addressable::URI.join(@base_uri, 'api/v1/rest/'+path.to_s)
+      else
+        uri = Addressable::URI.join(@base_uri, 'api/rest/'+path.to_s)
+      end
+      uri.query_values = query unless query.empty?
+      headers.merge!(@headers) unless @headers.empty?
+      if @access_token.nil?
+        begin
+          RestClient.log = @log
+          RestClient.open_timeout = 600
+          RestClient.timeout = 600
+          if [:patch, :post, :put].include? verb
+            response = RestClient.send(verb, uri.to_s, payload, headers)
+          else
+            response = RestClient.send(verb, uri.to_s, headers)
+          end
+          xml_response =  '<?xml' + response.split("<?xml").last
+          html_response = response.split("<?xml").first
+          puts html_response if !html_response.empty?
+          # @TODO - There must be a way to change the base object (XML string to
+          #   Hash) while keeping the methods...
+          XmlSimple.xml_in(xml_response, { 'ForceArray' => ['item'] })
+        rescue REXML::ParseException => xml_err
+          # XML Parser error
+          raise "Failed to parse server response."
         end
-        uri.query_values = query unless query.empty?
-        headers.merge!({:cookies => @session_cookies}) unless @session_cookies.empty?
-        headers.merge!(@headers) unless @headers.empty?
-        RestClient.log = @log
-        RestClient.open_timeout = 600
-        RestClient.timeout = 600
+      else
         if [:patch, :post, :put].include? verb
-          response = RestClient.send(verb, uri.to_s, payload, headers)
+          response = @access_token.request(verb, uri.to_s, payload, headers)
         else
-          response = RestClient.send(verb, uri.to_s, headers)
+          response = @access_token.request(verb, uri.to_s, headers)
         end
-        xml_response =  '<?xml' + response.split("<?xml").last
-        html_response = response.split("<?xml").first
-        puts html_response if !html_response.empty?
-        # @TODO - Review this logic - Update the cookies.
-        @session_cookies.merge!(response.cookies) unless response.cookies.empty?
-        # @TODO - There must be a way to change the base object (XML string to
-        #   Hash) while keeping the methods...
-        XmlSimple.xml_in(xml_response, { 'ForceArray' => ['item'] })
-      rescue REXML::ParseException => xml_err
-        # XML Parser error
-        raise "Failed to parse server response."
+        ActiveSupport::JSON.decode(response.body)
       end
     end
   end

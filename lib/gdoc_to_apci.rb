@@ -162,19 +162,10 @@ opts.each do |opt, arg|
 end
 
 def apci_imports_with_rails_app(pass, run_character = nil)
-  logger_level = nil
   $run_character = run_character
-  if ARGV.length != 1
-    puts "No host argument, default used (try --help)"
-    @apci_session = ApcirClient.new
-  else
-    host = ARGV.shift.split('@')
-    user = host.shift if host.length > 1
-    puts 'Connecting to ' + host[0] + '...'
-    @apci_session = ApcirClient.new(nil, host[0], 'https://', 'session')
-    @apci_session.add_headers({:API_USER_AGENT => $user_agent}) if !$user_agent.nil?
-  end
-  # End arguments
+  host = ARGV.shift.split('@')
+  user = host.shift if host.length > 1
+  logger_level = nil
 
   # Setup Logging.
   path = Dir.pwd + '/import_logs'
@@ -196,13 +187,11 @@ def apci_imports_with_rails_app(pass, run_character = nil)
     logger.level = logger_level.nil? ? Logger::DEBUG : logger_level
   end
 
-  # End Logging.
+  @apci_session = apci_session_create(host[0], user, pass)
   @apci_session.log(rest_logger)
-
-  # Extend our API class with import and interactive actions.
   @apci_session.extend ImportActions
   @apci_session.logger = logger
-  @apci_session.interactive_login(user,pass)
+  @apci_session.add_headers({:API_USER_AGENT => $user_agent}) if !$user_agent.nil?
 
   google_docs_import
 
@@ -210,6 +199,22 @@ def apci_imports_with_rails_app(pass, run_character = nil)
   @apci_session.logout
   rest_logger.close
   logger.close
+end
+
+def apci_session_create(host = nil, user = nil, pass = nil)
+  if host.nil?
+    puts "No host argument, default used (try --help)"
+    return ApcirClient.new
+  end
+  puts 'Connecting to ' + host + '...'
+  if $oauth_token.nil?
+    session = ApcirClient.new(nil, host, 'https://', 'session')
+    session.add_headers({:Authorization => 'Basic ' + Base64.encode64(user + ':' + pass)})
+  else
+    session = ApcirClient.new(nil, host, 'https://', 'oauth')
+    access_token = session.oauth_authenticate($oauth_key, $oauth_pass, $oauth_token, $oauth_secret)
+  end
+  return session
 end
 
 if @gdoc_mail and @gdoc_pass

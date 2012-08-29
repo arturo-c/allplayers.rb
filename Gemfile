@@ -1,11 +1,12 @@
 source "http://rubygems.org"
 
-gem "active_support", ">= 3.0.0"
+gem "activesupport", ">= 3.0.0"
 gem "addressable", ">= 2.2.7"
 gem "ci_reporter", ">= 1.7.0"
 gem "gdata", ">= 1.1.2"
 gem "highline", ">= 1.6.11"
 gem "nokogiri", ">= 1.5.0"
+gem "oauth", ">= 0.4.6"
 gem "rake", ">= 0.9.2.2"
 gem "rest-client", ">= 1.6.7"
 gem "rspec", ">= 2.9.0"
