@@ -162,7 +162,7 @@ opts.each do |opt, arg|
 end
 
 def apci_imports_with_rails_app(pass, run_character = nil)
-  $run_character = run_character
+  $run_character = run_character if $run_character.nil?
   host = ARGV.shift.split('@')
   user = host.shift if host.length > 1
   logger_level = nil

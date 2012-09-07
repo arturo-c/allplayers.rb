@@ -208,8 +208,10 @@ module ImportActions
           child_id = email_to_uid(kid['email'])
           if (matched_uid.nil? || matched_uid != child_id)
             system = {}
-            system['first_name'] = kid['firstname'] if kid.has_key?('firstname')
-            system['last_name'] = kid['lastname'] if kid.has_key?('lastname')
+            system['first_name'] = kid['firstname'].downcase if kid.has_key?('firstname')
+            system['last_name'] = kid['lastname'].downcase if kid.has_key?('lastname')
+            import['first_name'] = import['first_name'].downcase
+            import['last_name'] = import['last_name'].downcase
             if (system != import)
               # Keep looking
               next
