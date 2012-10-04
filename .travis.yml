@@ -1,0 +1,9 @@
+language: ruby
+rvm:
+  - 1.8.7
+env:
+  - APCI_REST_TEST_HOST=www.pdup.allplayers.com
+  - APCI_REST_TEST_USER=arturo@allplayers.com.example.com
+  - APCI_REST_TEST_PASS=test123
+script:
+  - bundle exec rspec spec/allplayers_spec.rb
