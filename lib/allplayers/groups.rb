@@ -60,5 +60,9 @@ module AllPlayers
     def group_clone(target_uuid, origin_uuid)
       post 'groups/' + target_uuid + '/copy/' + origin_uuid
     end
+
+    def group_get(group_uuid)
+      get 'groups/' + group_uuid
+    end
   end
 end

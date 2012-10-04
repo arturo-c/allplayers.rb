@@ -695,6 +695,18 @@ module ImportActions
   end
 
   def import_group(row)
+    if row.has_key?('group_clone') && row.has_key?('group_uuid') && !row['group_clone'].empty? && !row['group_uuid'].empty?
+      begin
+        self.group_get(row['group_uuid'])
+        self.group_get(row['group_clone'])
+      rescue RestClient::Exception => e
+        puts 'The group you are trying to clone from can not be found, moving on to creating the group.'
+      else
+        @logger.info(get_row_count.to_s) {'Cloning settings from group: ' + row['group_clone']}
+        self.group_clone(row['group_uuid'], row['group_clone'])
+        return
+      end
+    end
     if row['owner_uuid']
       begin
         owner = self.public_user_get(row['owner_uuid'])

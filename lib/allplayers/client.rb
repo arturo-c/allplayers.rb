@@ -13,19 +13,18 @@ module AllPlayers
     include AllPlayers::Events
     include AllPlayers::Users
     include AllPlayers::Groups
-    def initialize(api_key = nil, server = 'sandbox.allplayers.com', protocol = 'https://', auth = 'session')
+    def initialize(api_key = nil, server = 'sandbox.allplayers.com', protocol = 'https://', auth = 'session', access_token = nil)
       if (auth == 'session')
         extend AllPlayers::Auth::Session
+      end
+      if (auth == 'oauth')
+        RestClient.add_before_execution_proc do |req, params|
+          access_token.sign! req
+        end
       end
       @base_uri = Addressable::URI.join(protocol + server, '')
       @key = api_key # TODO - Not implemented in API yet.
       @headers = {}
-    end
-
-    def oauth_authenticate(consumer_key, consumer_secret, oauth_token, oauth_secret)
-      consumer = OAuth::Consumer.new(consumer_key, consumer_secret, :site => @base_uri, :http_method => :get)
-      @access_token = OAuth::AccessToken.new(consumer, oauth_token, oauth_secret)
-      @headers.merge!({'Accept' => 'application/json'})
     end
 
     # Add header method, preferably use array of symbols, e.g. {:USER-AGENT => 'RubyClient'}.
