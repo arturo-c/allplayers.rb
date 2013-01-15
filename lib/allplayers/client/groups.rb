@@ -1,0 +1,45 @@
+module AllPlayers
+  module Groups
+    def group_create(title, description, location, categories, more_params = {})
+      required_params = {
+        :title => title,
+        :description => description,
+        :location => location,
+        :category => categories
+      }
+      post 'groups', required_params.merge(more_params)
+    end
+
+    def group_set_manager(group_uuid, user_uuid, remove_previous = false)
+      post 'groups/' + group_uuid.to_s + '/setmanager/' + user_uuid.to_s, {:remove_previous => remove_previous}
+    end
+
+    def group_clone(target_uuid, origin_uuid, groups_above_setting = nil)
+      post 'groups/' + target_uuid + '/copy/' + origin_uuid, {:groups_above => groups_above_setting}
+    end
+
+    def group_get(group_uuid)
+      get 'groups/' + group_uuid
+    end
+
+    def group_search(params = {})
+      get 'groups', params
+    end
+
+    def group_delete(group_uuid)
+      delete 'groups/' + group_uuid.to_s
+    end
+
+    def group_update(group_uuid, params = {})
+      put 'groups/' + group_uuid, params
+    end
+
+    def group_members_list(group_uuid, user_uuid = '', params = {})
+      get 'groups/' + group_uuid + '/members/' + user_uuid, params
+    end
+
+    def group_roles_list(group_uuid, user_uuid = '', params = {})
+      get 'groups/' + group_uuid + '/roles/' + user_uuid, params
+    end
+  end
+end

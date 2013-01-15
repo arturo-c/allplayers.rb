@@ -19,8 +19,9 @@
 # HOST: The target server for imported items (e.g. demo.allplayers.com).
 
 require 'apci_gdoc'
-require 'apci_rest'
 require 'apcir_import_actions'
+require 'allplayers/client'
+require 'allplayers'
 require 'rubygems'
 require 'getoptlong'
 require 'rdoc/usage'
@@ -208,10 +209,10 @@ def apci_session_create(host = nil, user = nil, pass = nil)
   end
   puts 'Connecting to ' + host + '...'
   if $oauth_token.nil?
-    session = ApcirClient.new(nil, host, 'https://', 'session')
+    session = AllPlayers::Client.new(nil, host, 'https://', 'session')
     session.add_headers({:Authorization => 'Basic ' + Base64.encode64(user + ':' + pass)})
   else
-    session = ApcirClient.new(nil, host, 'https://', 'oauth')
+    session = AllPlayers::Client.new(nil, host, 'https://', 'oauth')
     access_token = session.oauth_authenticate($oauth_key, $oauth_pass, $oauth_token, $oauth_secret)
   end
   return session

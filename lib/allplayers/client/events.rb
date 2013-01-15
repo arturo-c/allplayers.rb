@@ -1,5 +1,5 @@
 module AllPlayers
-  module Event
+  module Events
     def event_create(title, description, groups, date_start, date_end, more_params = {})
       required_params = {
         :groups => groups,

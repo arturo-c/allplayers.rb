@@ -58,7 +58,7 @@ class ApciGoogSS
   rescue
     puts "Unable to retrieve spreadsheet: " + $!
   end
-  
+
   def put_cell_content(href, body, row, column)
     acl_entry = <<-EOF
 <entry xmlns="http://www.w3.org/2005/Atom"
@@ -72,7 +72,7 @@ EOF
     @client.headers["If-Match"] = '*'
     @client.put(href, acl_entry)
   end
-  
+
   # Traverse worksheet Nokogiri::XML GData Worksheet feed looking for cells and save them into a 2d array.
   def worksheet_feed_to_a(xml)
     worksheet = []

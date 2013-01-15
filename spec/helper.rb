@@ -1,8 +1,8 @@
 $:.unshift File.join(File.dirname(__FILE__),'..','lib')
 
 require 'open-uri'
-require 'allplayers/client_'
-require 'allplayers_'
+require 'allplayers/client'
+require 'allplayers'
 require 'apci_field_mapping'
 require 'getoptlong'
 require 'rdoc/usage'

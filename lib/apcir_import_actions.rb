@@ -11,6 +11,7 @@ require 'logger'
 require 'resolv'
 require 'date'
 require 'apci_gdoc'
+require 'faster_csv'
 
 # Stop EOF errors in Highline
 HighLine.track_eof = false
@@ -162,7 +163,8 @@ module ImportActions
       # If we've cached it, short circuit.
       return @@uid_map[email] if @@uid_map.has_key?(email)
       # Haven't cached it, create a targeted Mutex for it.
-      @@email_mutexes[email] = Mutex.new unless @@email_mutexes.has_key?(email)
+      # Changed to using monitor, see http://www.velocityreviews.com/forums/t857319-thread-and-mutex-in-ruby-1-8-7-a.html
+      @@email_mutexes[email] = Monitor.new unless @@email_mutexes.has_key?(email)
     end
 
     uid = nil
@@ -199,11 +201,11 @@ module ImportActions
     prefixes.each {|prefix|
       parent_description = prefix.split('_').join(' ').strip.capitalize
       if row.has_key?(prefix + 'uid')
-        parent = self.public_user_get_email(row[prefix + 'email_address'])
-        children = public_user_children_list(parent['item'].first['uuid'])
+        parent = self.user_get_email(row[prefix + 'email_address'])
+        children = self.user_children_list(parent['item'].first['uuid'])
         next if children.nil? || children.length <= 0
         children['item'].each do |child|
-          kid = self.public_user_get(child['uuid'])
+          kid = self.user_get(child['uuid'])
           next if kid['firstname'].nil?
           child_id = email_to_uid(kid['email'])
           if (matched_uid.nil? || matched_uid != child_id)
@@ -270,6 +272,26 @@ module ImportActions
     raise
   end
 
+  def get_group_names_from_file
+    groups_uuids = {}
+    if FileTest.exist?("imported_groups.csv")
+      FasterCSV.foreach("imported_groups.csv") do |row|
+        groups_uuids[row[1]] = row[2]
+      end
+    end
+    groups_uuids
+  end
+
+  def get_group_rows_from_file
+    groups_uuids = {}
+    if FileTest.exist?("imported_groups.csv")
+      FasterCSV.foreach("imported_groups.csv") do |row|
+        groups_uuids[row[0]] = row[2]
+      end
+    end
+    groups_uuids
+  end
+
   def prepare_row(row_array, column_defs, row_count = nil)
     if row_count
       set_row_count(row_count)
@@ -315,6 +337,8 @@ module ImportActions
 
     run_char = run_character
     run_char = $run_character unless $run_character.nil?
+    rerun_sheet = []
+    rerun_row_count = {}
     start_time = Time.now
     @logger.debug('import') {'Started ' + start_time.to_s}
 
@@ -382,18 +406,57 @@ module ImportActions
         threads[i].join
         puts 'Thread ' + i.to_s + ' exited.'
       }
-    elsif (name == 'Bad Participant Information')
-      # remove mixed sheet participants from groups
-      @logger.info(get_row_count.to_s) {"Importing Participants, Parents and Group assignments\n"}
-      sheet.each {|row| self.import_bad_mixed_user(self.prepare_row(row, column_defs))}
     elsif (name == 'Users')
       #if (2 <= (column_defs & ['First Name', 'Last Name']).length)
       @logger.info(get_row_count.to_s) {"Importing Users\n"}
       sheet.each {|row| self.import_user(self.prepare_row(row, column_defs))}
-    elsif (name == 'Groups' || name == 'Group Information')
+    elsif (name == 'Groups' || name == 'Group Information' || name == 'Duplicates')
       #elsif (2 <= (column_defs & ['Group Name', 'Category']).length)
       @logger.info(get_row_count.to_s) {"Importing Groups\n"}
-      sheet.each {|row| self.import_group(self.prepare_row(row, column_defs))}
+
+      # Multi-thread
+      threads = []
+      # Set default thread_count to 5, accept global to change it.
+      thread_count = $thread_count.nil? ? 5 : $thread_count
+      for i in 0..thread_count do
+        threads << Thread.new {
+           until sheet.nil?
+             row = nil
+             @@sheet_mutex.synchronize do
+               row = sheet.shift
+               row_count+=1
+             end
+             unless row.nil?
+               formatted_row = self.prepare_row(row, column_defs, row_count)
+               if run_char.nil?
+                 self.import_group(formatted_row)
+               else
+                 if formatted_row['run_character'].to_s == run_char.to_s
+                   title = self.import_group(formatted_row)
+                   if title == formatted_row['group_name']
+                     rerun_sheet.push(row) if title == formatted_row['group_name']
+                     rerun_row_count = rerun_row_count.merge(title => get_row_count)
+                   end
+                 else
+                   @logger.info(get_row_count.to_s) {'Skipping row ' + row_count.to_s}
+                 end
+               end
+             else
+               break
+             end
+           end
+        }
+      end
+      threads.each_index {|i|
+        threads[i].join
+        puts 'Thread ' + i.to_s + ' exited.'
+      }
+      # Retrying rows that didn't find group above.
+      rerun_sheet.each {|row|
+        formatted_row = self.prepare_row(row, column_defs)
+        set_row_count(rerun_row_count[formatted_row['group_name']])
+        self.import_group(formatted_row)
+      }
     elsif (name == 'Events')
       #elsif (2 <= (column_defs & ['Title', 'Groups Involved', 'Duration (in minutes)']).length)
       @logger.info(get_row_count.to_s) {"Importing Events\n"}
@@ -474,37 +537,6 @@ module ImportActions
         responses[prefix] = import_user_group_role(user.merge(group)) unless group.empty?
       }
     end
-  end
-
-  def import_bad_mixed_user(row)
-    # Remove participant from groups.
-    responses = {}
-    # Find the max number of groups being imported
-    group_list = row.reject {|key, value| key.match('group_').nil?}
-    number_of_groups = 0
-    key_int_value = 0
-    group_list.each {|key, value|
-      key_parts = key.split('_')
-      key_parts.each {|part|
-        key_int_value = part.to_i
-        if (key_int_value > number_of_groups)
-          number_of_groups = key_int_value
-        end
-      }
-    }
-
-    # Create the list of group names to iterate through
-    group_names = []
-    for i in 1..number_of_groups
-      group_names.push('group_' + i.to_s + '_')
-    end
-
-    # Group Removal
-    group_names.each {|prefix|
-      group = row.key_filter(prefix, 'group_')
-      user = row.key_filter('participant_')
-      responses[prefix] = remove_user_group_role(user.merge(group)) unless group.empty?
-    }
   end
 
   def import_user(row, description = 'User')
@@ -653,8 +685,8 @@ module ImportActions
         more_params['email'] = row['email_address']
       end
       if row.has_key?('parent_1_uid')
-        parent = self.public_user_get_email(row['parent_1_email_address'])
-        $child_public_api = self.public_children_add(
+        parent = self.user_get_email(row['parent_1_email_address'])
+        $child_public_api = self.user_create_child(
           parent['item'].first['uuid'],
           row['first_name'],
           row['last_name'],
@@ -685,7 +717,7 @@ module ImportActions
       increment_stat('Users')
       increment_stat(description + 's') if description != 'User'
 
-      # Don't add parent 1, already added with public_children_add.
+      # Don't add parent 1, already added with user_create_child.
       response['parenting_2_response'] = self.user_parent_add(response['uid'], row['parent_2_uid']) if row.has_key?('parent_2_uid')
     end
 
@@ -695,77 +727,148 @@ module ImportActions
   end
 
   def import_group(row)
-    if row.has_key?('group_clone') && row.has_key?('group_uuid') && !row['group_clone'].empty? && !row['group_uuid'].empty?
-      begin
-        self.group_get(row['group_uuid'])
-        self.group_get(row['group_clone'])
-      rescue RestClient::Exception => e
-        puts 'The group you are trying to clone from can not be found, moving on to creating the group.'
-      else
-        @logger.info(get_row_count.to_s) {'Cloning settings from group: ' + row['group_clone']}
-        self.group_clone(row['group_uuid'], row['group_clone'])
+    @groups_map = get_group_names_from_file unless defined? @groups_map
+    @group_rows = get_group_rows_from_file unless defined? @group_rows
+    # Checking name duplication, if duplicate add identifier by type division, league, etc..
+    if @group_rows.has_key?(get_row_count.to_s)
+      row['uuid'] = @group_rows[get_row_count.to_s]
+    end
+    begin
+      if row['delete']
+        begin
+          # Make sure registration settings are turned off by making group inactive.
+          self.group_update(row['uuid'], {'active' => 0})
+          self.group_delete(row['uuid'])
+        rescue RestClient::Exception => e
+          puts 'There was a problem deleting group:' + row['uuid']
+          @logger.info(get_row_count.to_s) {'There was a problem deleting group:' + row['uuid'] + ' ' + e.message}
+        else
+          @logger.info(get_row_count.to_s) {'Deleting group:' + row['uuid']}
+          puts 'Deleting group:' + row['uuid']
+        end
         return
       end
-    end
-    if row['owner_uuid']
-      begin
-        owner = self.public_user_get(row['owner_uuid'])
-        raise if !owner.has_key?('uuid')
-      rescue
-        puts "Couldn't get group owner from UUID: " + row['owner_uuid'].to_s
+      if row.has_key?('group_clone') && row.has_key?('uuid') && !row['group_clone'].empty? && !row['uuid'].empty?
+        begin
+          self.group_get(row['uuid'])
+          self.group_get(row['group_clone'])
+        rescue RestClient::Exception => e
+          puts 'The group you are trying to clone from can not be found, moving on to creating the group.'
+        else
+          @logger.info(get_row_count.to_s) {'Cloning settings from group: ' + row['group_clone']}
+          self.group_clone(row['uuid'], row['group_clone'])
+          return
+        end
+      elsif row.has_key?('uuid')
+        puts 'Group already imported.'
+        @logger.info(get_row_count.to_s) {'Group already imported.'}
+        return
+      end
+      if row['owner_uuid']
+        begin
+          owner = self.user_get(row['owner_uuid'])
+          raise if !owner.has_key?('uuid')
+        rescue
+          puts "Couldn't get group owner from UUID: " + row['owner_uuid'].to_s
+          return {}
+        end
+      else
+        puts 'Group import requires group owner'
         return {}
       end
-    else
-      puts 'Group import requires group owner'
-      return {}
-    end
-    location = row.key_filter('address_')
-    if location['zip'].nil?
-      @logger.error(get_row_count.to_s) {'Location ZIP required for group import.'}
-      return {}
-    end
-
-    categories = row['group_categories'].split(',') unless row['group_categories'].nil?
-    if categories.nil?
-      @logger.error(get_row_count.to_s) {'Group Type required for group import.'}
-      return {}
-    end
-    more_params = {}
-    more_params['group_type'] = row['group_type'] unless row['group_type'].nil?
-
-    if row.has_key?('group_above') && !row['group_above'].empty?
-      if @groups_uuid_map.has_key?(row['group_above'])
-        @logger.info(get_row_count.to_s) {'Found group above: ' + row['group_above'] + 'at UUID ' + @groups_uuid_map[row['group_above']].to_s}
-        more_params['groups_above'][] = @groups_uuid_map[row['group_above']]
-      else
-        puts 'Row ' + get_row_count.to_s + "Couldn't find group above: " + row['group_above']
-        return
+      location = row.key_filter('address_')
+      if location['zip'].nil?
+        @logger.error(get_row_count.to_s) {'Location ZIP required for group import.'}
+        return {}
       end
-    elsif row.has_key?('group_uuid') && !row['group_uuid'].empty?
-      more_params['groups_above'] = {'0' => row['group_uuid']}
-    end
 
-    @logger.info(get_row_count.to_s) {'Importing group: ' + row['group_name']}
-    response = self.group_create_public(
-      row['group_name'], # Title
-      row['group_description'], # Description field
-      location,
-      categories.last,
-      more_params
-    )
-  rescue RestClient::Exception => e
-    @logger.error(get_row_count.to_s) {'Failed to import group: ' + e.message}
-  else
-    if (response && response.has_key?('uuid'))
-      increment_stat('Groups')
-      @group_uuid_map = Hash.new unless defined? @group_uuid_map
-      @group_uuid_map[row['group_name']] = response['uuid']
-      if row.has_key?('group_clone') && !row['group_clone'].empty?
-        @logger.info(get_row_count.to_s) {'Cloning settings from group: ' + row['group_clone']}
-        response = self.group_clone(
-          response['uuid'],
-          row['group_clone']
-        )
+      categories = row['group_categories'].split(',') unless row['group_categories'].nil?
+      if categories.nil?
+        @logger.error(get_row_count.to_s) {'Group Type required for group import.'}
+        return {}
+      end
+      more_params = {}
+      more_params['group_type'] = row['group_type'] unless row['group_type'].nil?
+
+      # Checking name duplication, if duplicate add identifier by type division, league, etc..
+      # Only one level deep.
+      if @groups_map.has_key?(row['group_name'])
+        if row['group_type'] == 'Club'
+          if @groups_map.has_key?(row['group_name'] + ' Club')
+            row['group_name'] = row['group_name'] + ' Club 1'
+          else
+            row['group_name'] = row['group_name'] + ' Club'
+          end
+        elsif row['group_type'] == 'Team'
+          if @groups_map.has_key?(row['group_name'] + ' Team')
+            if @groups_map.has_key(row['group_name'] + ' 1')
+              row['group_above'] = row['group_name'] + ' Club 1'
+              row['group_name'] = row['group_name'] + ' 2'
+            else
+              row['group_above'] = row['group_name'] + ' Club'
+              row['group_name'] = row['group_name'] + ' 1'
+            end
+          else
+            row['group_name'] = row['group_name'] + ' Team'
+          end
+        end
+      end
+
+      if row.has_key?('group_uuid') && !row['group_uuid'].empty?
+        more_params['groups_above'] = {'0' => row['group_uuid']}
+      elsif row.has_key?('group_above') && !row['group_above'].empty?
+        if @groups_map.has_key?(row['group_above'])
+          @logger.info(get_row_count.to_s) {'Found group above: ' + row['group_above'] + ' at UUID ' + @groups_map[row['group_above']]}
+          more_params['groups_above'] = {@groups_map[row['group_above']] => @groups_map[row['group_above']]}
+        else
+          response = self.group_search({:title => row['group_above']})
+          unless response['item'].nil?
+            response['item'].each { |group|
+              if group['title'] == row['group_above']
+                row['group_name'] = row['group_name'] + ' ' + row['group_type'] if group['title'] == row['group_name']
+                more_params['groups_above'] = {group['uuid'] => group['uuid']}
+              end
+            }
+            if more_params['groups_above'].nil?
+              puts 'Row ' + get_row_count.to_s + "Couldn't find group above: " + row['group_above']
+              @logger.error(get_row_count.to_s) {"Couldn't find group above: " + row['group_above']}
+              return row['group_name']
+            end
+          else
+            puts 'Row ' + get_row_count.to_s + "Couldn't find group above: " + row['group_above']
+            @logger.error(get_row_count.to_s) {"Couldn't find group above: " + row['group_above']}
+            return row['group_name']
+          end
+        end
+      end
+
+      @logger.info(get_row_count.to_s) {'Importing group: ' + row['group_name']}
+      response = self.group_create(
+        row['group_name'], # Title
+        row['group_description'], # Description field
+        location,
+        categories.last,
+        more_params
+      )
+      @logger.info(get_row_count.to_s) {'Group UUID: ' + response['uuid']}
+    rescue RestClient::Exception => e
+      @logger.error(get_row_count.to_s) {'Failed to import group: ' + e.message}
+    else
+      if (response && response.has_key?('uuid'))
+        increment_stat('Groups')
+        # Writing data into a csv file
+        @groups_map[row['group_name']] = response['uuid']
+        FasterCSV.open("imported_groups.csv", "a") do |csv|
+           csv << [get_row_count, row['group_name'],response['uuid']]
+        end
+        if row.has_key?('group_clone') && !row['group_clone'].empty?
+          @logger.info(get_row_count.to_s) {'Cloning settings from group: ' + row['group_clone']}
+          response = self.group_clone(
+            response['uuid'],
+            row['group_clone'],
+            nil
+          )
+        end
       end
     end
   end
@@ -819,50 +922,21 @@ module ImportActions
     end
 
     # Check Group
-    if row.has_key?('group_nid')
-      nid = row['group_nid']
-    elsif row.has_key?('group_name')
-      begin
-        nid = group_name_to_nid(row['group_name'])
-      rescue
-        @logger.error(get_row_count.to_s) {"Can't locate group " + row['group_name']}
-        return
-      end
+    if row.has_key?('group_uuid')
+      group_uuid = row['group_uuid']
     else
-      @logger.error(get_row_count.to_s) {'User ' + row['email_address'] + " can't be added to group without group name."}
+      @logger.error(get_row_count.to_s) {'User ' + row['email_address'] + " can't be added to group without group uuid."}
       return
     end
 
     response = {}
     # Join user to group.
     begin
-      # Consider doing this in one step with og_rap services, save a post (and GET lookup?)
-      response['join'] = self.user_join_group(uid, nid)
-    rescue RestClient::Exception => e
-      @logger.error(get_row_count.to_s) {'User ' + uid.to_s + " failed to join group " + nid.to_s + ': ' + e.message}
-    else
-      if (response['join'].nil? || response['join'].empty?)
-        @logger.error(get_row_count.to_s) {'User ' + uid.to_s + " failed to join group " + nid.to_s}
-      else
-        @logger.info(get_row_count.to_s) {'User ' + uid.to_s + " joined group " + nid.to_s}
-      end
-    end
-
-    # Add to user to group role
-    # TODO - Split group role assignment to separate function.
-    if row.has_key?('group_role')
-      # Break up any comma separated list of roles into individual roles
-      group_roles = row['group_role'].split(',')
-      group_roles.each {|group_role|
-        # Remove whitespace
-        group_role = group_role.strip
-        # Get a rid to assign.
-        begin
-          rid = group_role_to_rid(group_role, nid)
-        rescue
-          # Log with either group_name or group nid.
-          @logger.error(get_row_count.to_s) {"Can't locate role " + group_role + ' in group ' + (row['group_name'].nil? ? nid.to_s : row['group_name'])}
-        end
+      # Get user uuid.
+      user = self.user_get_email(row['email_address'])
+      if row.has_key?('group_role')
+        # Break up any comma separated list of roles into individual roles
+        group_roles = row['group_role'].split(',')
         options = {}
         if row.has_key?('group_fee')
           options = case row['group_fee']
@@ -871,8 +945,27 @@ module ImportActions
             else {}
           end
         end
-        response['role'] = self.user_group_role_add(uid, nid, rid, options) unless rid.nil?
-      }
+        group_roles.each {|group_role|
+          # Remove whitespace
+          group_role = group_role.strip
+          if row.has_key?('group_webform_id')
+            webform_ids = row['group_webform_id'].split(',')
+            response = self.user_join_group(group_uuid, user['item'].first['uuid'], group_role, options, webform_ids)
+          else
+            response = self.user_join_group(group_uuid, user['item'].first['uuid'], group_role, options)
+          end
+        }
+      else
+        response = self.user_join_group(group_uuid, user['item'].first['uuid'])
+      end
+    rescue RestClient::Exception => e
+      @logger.error(get_row_count.to_s) {'User ' + uid.to_s + " failed to join group " + group_uuid.to_s + ': ' + e.message}
+    else
+      if row.has_key?('group_role')
+        @logger.info(get_row_count.to_s) {'User ' + uid.to_s + " joined group " + group_uuid.to_s + ' with role(s) ' + row['group_role']}
+      else
+        @logger.info(get_row_count.to_s) {'User ' + uid.to_s + " joined group " + group_uuid.to_s}
+      end
     end
 
     #log stuff!!
@@ -880,46 +973,4 @@ module ImportActions
     response
   end
 
-  def remove_user_group_role(row)
-    # Check User.
-    if row.has_key?('uid')
-      uid = row['uid']
-    elsif row.has_key?('email_address')
-      begin
-        uid = email_to_uid(row['email_address'])
-      rescue
-        @logger.error(get_row_count.to_s) {"User " + row['email_address'] + " doesn't exist to remove from group " + row['group_name']}
-        return
-      end
-    else
-      @logger.row(get_row_count.to_s) {"User can't be removed to group without email address."}
-      return
-    end
-
-    # Check Group
-    if row.has_key?('group_nid')
-      nid = row['group_nid']
-    elsif row.has_key?('group_name')
-      begin
-        nid = group_name_to_nid(row['group_name'])
-      rescue
-        @logger.error(get_row_count.to_s) {"Can't locate group " + row['group_name']}
-        return
-      end
-    else
-      @logger.error(get_row_count.to_s) {'User ' + row['email_address'] + " can't be added to group without group name."}
-      return
-    end
-
-    response = {}
-    @logger.info(get_row_count.to_s) {'User ' + uid.to_s + " removed from group " + nid.to_s}
-    # Join user to group.
-    response['leave'] = self.user_leave_group(uid, nid)
-
-    #puts response['leave'].to_yaml
-
-    #log stuff!!
-
-    response
-  end
 end
