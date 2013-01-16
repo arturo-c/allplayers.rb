@@ -2,6 +2,7 @@
 require 'allplayers/monkey_patches/rest_client'
 require 'allplayers/api'
 require 'allplayers/client'
+require 'apcir_import_actions'
 require 'allplayers/configuration'
 
 module AllPlayers

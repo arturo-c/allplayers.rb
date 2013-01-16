@@ -134,7 +134,7 @@ module ImportActions
   @@email_mutexes = {}
 
   # Static UID to email
-  @@uid_map = {}
+  @@uuid_map = {}
   # Statistics about operations performed
   @@stats = {}
 
@@ -157,29 +157,6 @@ module ImportActions
     uid
   end
 
-  # Cache and honor locks on email to UID req's.
-  def email_to_uid(email, action = nil)
-    @@user_mutex.synchronize do
-      # If we've cached it, short circuit.
-      return @@uid_map[email] if @@uid_map.has_key?(email)
-      # Haven't cached it, create a targeted Mutex for it.
-      # Changed to using monitor, see http://www.velocityreviews.com/forums/t857319-thread-and-mutex-in-ruby-1-8-7-a.html
-      @@email_mutexes[email] = Monitor.new unless @@email_mutexes.has_key?(email)
-    end
-
-    uid = nil
-    # Try to get a targeted lock.
-    @@email_mutexes[email].synchronize {
-      # Got the lock, short circuit if another thread found our UID.
-      return @@uid_map[email] if @@uid_map.has_key?(email)
-      uid = match_user_email(email)
-      @@uid_map[email] = uid unless uid.nil?
-    }
-    # Caller wants the lock while it tries to generate a user.
-    return uid, @@email_mutexes[email] if action == :lock
-    uid
-  end
-
   def match_user_email(email)
     users = self.user_list({'mail' => email})
     if users.respond_to?(:has_key?) && users.has_key?('item')
@@ -192,7 +169,7 @@ module ImportActions
     return nil
   end
 
-  def verify_children(row, description = 'User', matched_uid = nil)
+  def verify_children(row, description = 'User', matched_uuid = nil)
     # Fields to match
     import = row.reject {|k,v| k != 'first_name' && k != 'last_name'}
     prefixes = ['parent_1_', 'parent_2_']
@@ -200,15 +177,13 @@ module ImportActions
     ret = nil
     prefixes.each {|prefix|
       parent_description = prefix.split('_').join(' ').strip.capitalize
-      if row.has_key?(prefix + 'uid')
-        parent = self.user_get_email(row[prefix + 'email_address'])
-        children = self.user_children_list(parent['item'].first['uuid'])
+      if row.has_key?(prefix + 'uuid')
+        children = self.user_children_list(row[prefix + 'uuid'])
         next if children.nil? || children.length <= 0
         children['item'].each do |child|
           kid = self.user_get(child['uuid'])
           next if kid['firstname'].nil?
-          child_id = email_to_uid(kid['email'])
-          if (matched_uid.nil? || matched_uid != child_id)
+          if (matched_uuid.nil? || matched_uuid != child['uuid'])
             system = {}
             system['first_name'] = kid['firstname'].downcase if kid.has_key?('firstname')
             system['last_name'] = kid['lastname'].downcase if kid.has_key?('lastname')
@@ -220,11 +195,11 @@ module ImportActions
             end
             # Found it
             @logger.info(get_row_count.to_s) {parent_description + ' has matching child: ' + description + ' ' + row['first_name'] + ' ' + row['last_name']} if ret.nil?
-            if matched_uid.nil?
-              matched_uid = child_id
+            if matched_uuid.nil?
+              matched_uuid = child['uuid']
             end
             if !child.nil?
-              ret = {'mail' => kid['email'], 'uid' => matched_uid }
+              ret = {'mail' => kid['email'], 'uuid' => matched_uuid }
             end
             matched_parents.push(prefix)
             break
@@ -233,43 +208,17 @@ module ImportActions
       end
     }
     # Add existing child to other parent if needed.
-    unless matched_uid.nil?
+    unless matched_uuid.nil?
       prefixes.each {|prefix|
         parent_description = prefix.split('_').join(' ').strip.capitalize
-        if row.has_key?(prefix + 'uid') && !matched_parents.include?(prefix)
-          @logger.info(get_row_count.to_s) {'Adding existing child, ' + description + ' ' + row['first_name'] + ' ' + row['last_name'] + ' to has matching child : ' + parent_description}
-          self.user_parent_add(matched_uid, row[prefix + 'uid'])
+        if row.has_key?(prefix + 'uuid') && !matched_parents.include?(prefix)
+          @logger.info(get_row_count.to_s) {'Adding existing child, ' + description + ' ' + row['first_name'] + ' ' + row['last_name'] + ' has matching child : ' + parent_description}
+          self.user_create_child(row[prefix + 'uuid'], '', '', '', '', {:child_uuid => matched_uuid})
         end
       }
     end
 
     return ret
-  end
-
-  def group_name_to_nid(name)
-    # Lookup group by name
-    # TODO - Extend to filter by group owner, too.  Reduce chance of mismatch.
-    nodes = node_list({
-        :type => 'group',
-        'title' => name,
-      })
-    if nodes.has_key?('item') && nodes['item'].length == 1
-      return nodes['item'].first['nid']
-    else
-      raise
-    end
-  end
-
-  def group_role_to_rid(role_name, nid)
-    roles = self.group_roles_list(nid)
-
-    roles['item'].each do | role |
-      if role['name'] == role_name && role.has_key?('rid')
-        return role['rid']
-      end
-    end
-    # Didn't find group role.
-    raise
   end
 
   def get_group_names_from_file
@@ -530,7 +479,6 @@ module ImportActions
       end
 
       # Group Assignment + Participant
-      # TODO - Create per session Group title - NID (email - UID too?) map to prefer nodes created.
       group_names.each {|prefix|
         group = row.key_filter(prefix, 'group_')
         user = row.key_filter('participant_')
@@ -558,16 +506,16 @@ module ImportActions
     ('1'..'2').each { |i|
       key = 'parent_' + i + '_email_address'
       if row.has_key?(key)
-        parent_uid = nil
+        parent_uuid = nil
         begin
-          parent_uid = self.email_to_uid(row[key])
+          parent_uuid = self.user_get_email(row[key])
         rescue DuplicateUserExists => dup_e
           @logger.error(get_row_count.to_s) {'Parent ' + i + ' ' + dup_e.message.to_s}
         end
-        if parent_uid.nil?
+        if parent_uuid.nil?
           @logger.warn(get_row_count.to_s) {"Can't find account for Parent " + i + ": " + row[key]}
         else
-          row['parent_' + i + '_uid'] = parent_uid
+          row['parent_' + i + '_uuid'] = parent_uuid
         end
       end
     }
@@ -575,7 +523,7 @@ module ImportActions
     # If 13 or under, verify parent, request allplayers.net email if needed.
     if birthdate.to_age < 14
       # If 13 or under, no email  & has parent, request allplayers.net email.
-      if !(row.has_key?('parent_1_uid') || row.has_key?('parent_2_uid'))
+      if !(row.has_key?('parent_1_uuid') || row.has_key?('parent_2_uuid'))
         @logger.error(get_row_count.to_s) {'Missing parents for '+ description +' age 13 or less.'}
         return {}
       end
@@ -585,16 +533,16 @@ module ImportActions
     # Request allplayers.net email if needed.
     if !row.has_key?('email_address')
       # If 13 or under, no email  & has parent, request allplayers.net email.
-      if row.has_key?('parent_1_uid') || row.has_key?('parent_2_uid')
+      if row.has_key?('parent_1_uuid') || row.has_key?('parent_2_uuid')
         # Request allplayers.net email
         more_params['email_alternative'] = {:value => 1}
         # TODO - Consider how to send welcome email to parent. (Queue allplayers.net emails in Drupal for cron playback)
         # Create a lock for these parents
         @@user_mutex.synchronize do
-          parent_uids = []
-          parent_uids.push(row['parent_1_uid']) if row.has_key?('parent_1_uid')
-          parent_uids.push(row['parent_2_uid']) if row.has_key?('parent_2_uid')
-          parents_key = parent_uids.sort.join('_')
+          parent_uuids = []
+          parent_uuids.push(row['parent_1_uuid']) if row.has_key?('parent_1_uuid')
+          parent_uuids.push(row['parent_2_uuid']) if row.has_key?('parent_2_uuid')
+          parents_key = parent_uuids.sort.join('_')
           # Haven't cached it, create a targeted Mutex for it.
           @@email_mutexes[parents_key] = Mutex.new unless @@email_mutexes.has_key?(parents_key)
           lock = @@email_mutexes[parents_key]
@@ -606,16 +554,16 @@ module ImportActions
     else
       # Check if user already
       begin
-        uid, lock = email_to_uid(row['email_address'], :lock)
+        uuid, lock = self.user_get_email(row['email_address'], :lock)
       rescue DuplicateUserExists => dup_e
         @logger.error(get_row_count.to_s) {description + ' ' + dup_e.message.to_s}
         return {}
       end
 
-      if !uid.nil?
-        @logger.warn(get_row_count.to_s) {description + ' already exists: ' + row['email_address'] + ' at UID: ' + uid + '. No profile fields will be imported.  Participant will still be added to groups.'}
-        self.verify_children(row, description, uid)
-        return {'mail' => row['email_address'], 'uid' => uid }
+      if !uuid.nil?
+        @logger.warn(get_row_count.to_s) {description + ' already exists: ' + row['email_address'] + ' at UUID: ' + uuid + '. Participant will still be added to groups.'}
+        self.verify_children(row, description, uuid)
+        return {'mail' => row['email_address'], 'uuid' => uuid }
       else
         if !row['email_address'].valid_email_address?
           @logger.error(get_row_count.to_s) {description + ' has an invalid email address: ' + row['email_address'] + '. Skipping.'}
@@ -638,64 +586,31 @@ module ImportActions
 
     @logger.info(get_row_count.to_s) {'Importing ' + description +': ' + row['first_name'] + ' ' + row['last_name']}
 
-    # TODO - Test if all fields need 0 => value pattern or just value.
-
-    more_params['field_emergency_contact_fname'] = {:'0' => {:value => row['emergency_contact_first_name']}} if row.has_key?('emergency_contact_first_name')
-    more_params['field_emergency_contact_lname'] = {:'0' => {:value => row['emergency_contact_last_name']}} if row.has_key?('emergency_contact_last_name')
-    more_params['field_emergency_contact_phone'] = {:'0' => {:value => row['emergency_contact_number']}} if row.has_key?('emergency_contact_number')
-    more_params['field_ethnicity'] = {:'0' => {:value => row['ethnicity']}} if row.has_key?('ethnicity')
-    more_params['field_hat_size'] = {:'0' => {:value => row['hat_size']}} if row.has_key?('hat_size')
-    more_params['field_organization'] = {:'0' => {:value => row['organization']}} if row.has_key?('organization')
-    more_params['field_pant_size'] = {:'0' => {:value => row['pant_size']}} if row.has_key?('pant_size')
-    more_params['field_phone'] = {:'0' => {:value => row['home_phone']}} if row.has_key?('home_phone')
-    more_params['field_school'] = {:'0' => {:value => row['school']}} if row.has_key?('school')
-    more_params['field_school_grade'] = {:'0' => {:value => row['grade']}} if row.has_key?('grade')
-    more_params['field_weight'] = {:'0' => {:value => row['weight']}} if row.has_key?('weight')
-
-    begin
-      more_params['field_height'] = {:'0' => {:value => apci_field_height(row['height'])}} if row.has_key?('height')
-      more_params['field_shoe_size'] = {:'0' => {:value => apci_field_shoe_size(row['shoe_size'])}} if row.has_key?('shoe_size')
-      more_params['field_size'] = {:'0' => {:value => apci_field_shirt_size(row['shirt_size'])}} if row.has_key?('shirt_size')
-
-      # Location fields
-      field_address = apci_location_map(row.key_filter('primary_'))
-      more_params['field_address'] = {:'0' => field_address} unless field_address.empty?
-
-      field_emergency_contact = apci_location_map(row.key_filter('emergency_contact_'))
-      more_params['field_emergency_contact'] = {:'0' => field_emergency_contact} unless field_emergency_contact.empty?
-
-    rescue RuntimeError => e
-      @logger.error(get_row_count.to_s) {'Error parsing ' + description + ': ' + e.message}
-    end
-
     response = {}
 
     # Lock down this email address.
     lock.synchronize {
       # Last minute checks.
-      if !row['email_address'].nil? && @@uid_map.has_key?(row['email_address'])
-        @logger.warn(get_row_count.to_s) {description + ' already exists: ' + row['email_address'] + ' at UID: ' + @@uid_map[row['email_address']] + '. No profile fields will be imported.  Participant will still be added to groups.'}
-        return {'mail' => row['email_address'], 'uid' => @@uid_map[row['email_address']] }
+      if !row['email_address'].nil? && @@uuid_map.has_key?(row['email_address'])
+        @logger.warn(get_row_count.to_s) {description + ' already exists: ' + row['email_address'] + ' at UUID: ' + @@uuid_map[row['email_address']] + '. Participant will still be added to groups.'}
+        return {'mail' => row['email_address'], 'uid' => @@uuid_map[row['email_address']] }
       end
 
       # Avoid creating duplicate children.
       existing_child = self.verify_children(row, description)
       return existing_child unless existing_child.nil?
-      if row.has_key?('email_address') && row.has_key?('parent_1_uid')
+      if row.has_key?('email_address') && row.has_key?('parent_1_uuid')
         more_params['email'] = row['email_address']
       end
-      if row.has_key?('parent_1_uid')
-        parent = self.user_get_email(row['parent_1_email_address'])
-        $child_public_api = self.user_create_child(
-          parent['item'].first['uuid'],
+      if row.has_key?('parent_1_uuid')
+        response = self.user_create_child(
+          row['parent_1_uuid'],
           row['first_name'],
           row['last_name'],
           birthdate,
           row['gender'],
           more_params
         )
-        child_uid = email_to_uid($child_public_api['email'])
-        response = self.user_get(child_uid)
       else
         response = self.user_create(
           row['email_address'],
@@ -707,18 +622,18 @@ module ImportActions
         )
       end
 
-      if !response.nil?  && response.has_key?('uid')
+      if !response.nil?  && response.has_key?('uuid')
         # Cache the new users UID while we have the lock.
-        @@user_mutex.synchronize { @@uid_map[response['mail']] = response['uid'] }
+        @@user_mutex.synchronize { @@uuid_map[response['email']] = response['uuid'] }
       end
     }
 
-    if !response.nil?  && response.has_key?('uid')
+    if !response.nil?  && response.has_key?('uuid')
       increment_stat('Users')
       increment_stat(description + 's') if description != 'User'
 
       # Don't add parent 1, already added with user_create_child.
-      response['parenting_2_response'] = self.user_parent_add(response['uid'], row['parent_2_uid']) if row.has_key?('parent_2_uid')
+      response['parenting_2_response'] = self.user_create_child(row['parent_2_uuid'], '', '', '', '', {:child_uuid => response['uuid']}) if row.has_key?('parent_2_uuid')
     end
 
     return response
@@ -907,11 +822,11 @@ module ImportActions
 
   def import_user_group_role(row)
     # Check User.
-    if row.has_key?('uid')
-      uid = row['uid']
+    if row.has_key?('uuid')
+      user = self.user_get(row['uuid'])
     elsif row.has_key?('email_address') && !row['email_address'].respond_to?(:to_s)
       begin
-        uid = email_to_uid(row['email_address'])
+        user = self.user_get_email(row['email_address'])
       rescue
         @logger.error(get_row_count.to_s) {"User " + row['email_address'] + " doesn't exist to add to group"}
         return
@@ -932,8 +847,6 @@ module ImportActions
     response = {}
     # Join user to group.
     begin
-      # Get user uuid.
-      user = self.user_get_email(row['email_address'])
       if row.has_key?('group_role')
         # Break up any comma separated list of roles into individual roles
         group_roles = row['group_role'].split(',')
@@ -959,12 +872,12 @@ module ImportActions
         response = self.user_join_group(group_uuid, user['item'].first['uuid'])
       end
     rescue RestClient::Exception => e
-      @logger.error(get_row_count.to_s) {'User ' + uid.to_s + " failed to join group " + group_uuid.to_s + ': ' + e.message}
+      @logger.error(get_row_count.to_s) {'User ' + user['item'].first['uuid'] + " failed to join group " + group_uuid.to_s + ': ' + e.message}
     else
       if row.has_key?('group_role')
-        @logger.info(get_row_count.to_s) {'User ' + uid.to_s + " joined group " + group_uuid.to_s + ' with role(s) ' + row['group_role']}
+        @logger.info(get_row_count.to_s) {'User ' + user['item'].first['uuid'] + " joined group " + group_uuid.to_s + ' with role(s) ' + row['group_role']}
       else
-        @logger.info(get_row_count.to_s) {'User ' + uid.to_s + " joined group " + group_uuid.to_s}
+        @logger.info(get_row_count.to_s) {'User ' + user['item'].first['uuid'] + " joined group " + group_uuid.to_s}
       end
     end
 
