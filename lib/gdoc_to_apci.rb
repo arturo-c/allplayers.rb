@@ -205,7 +205,7 @@ end
 def apci_session_create(host = nil, user = nil, pass = nil)
   if host.nil?
     puts "No host argument, default used (try --help)"
-    return ApcirClient.new
+    return AllPlayers::Client.new
   end
   puts 'Connecting to ' + host + '...'
   if $oauth_token.nil?

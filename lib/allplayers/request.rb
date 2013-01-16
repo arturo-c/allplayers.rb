@@ -35,12 +35,16 @@ module AllPlayers
           response = RestClient.send(verb, uri.to_s, headers)
         end
         # Had to remove any html tags before the xml because xmlsimple was reading the hmtl errors on pdup and was crashing.
+        return response unless response.net_http_res.body
         xml_response =  '<?xml' + response.split("<?xml").last
         html_response = response.split("<?xml").first
         puts html_response if !html_response.empty?
         # @TODO - There must be a way to change the base object (XML string to
         #   Hash) while keeping the methods...
-        XmlSimple.xml_in(xml_response, { 'ForceArray' => ['item'] })
+        array_response = XmlSimple.xml_in(xml_response, { 'ForceArray' => ['item'] })
+        return array_response if array_response.empty? || array_response.include?('item') || array_response['item'].nil?
+        return array_response['item'].first if array_response['item'].length == 1
+        array_response['item']
       rescue REXML::ParseException => xml_err
         # XML Parser error
         raise "Failed to parse server response."
