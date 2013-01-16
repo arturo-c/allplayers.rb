@@ -1,4 +1,25 @@
 allplayers.rb
 =============
 
-AllPlayers.com ruby client  https://www.allplayers.com
+AllPlayers.com, Inc. Ruby client for public API.
+
+Can be installed as a gem, <code>sudo gem install allplayers</code>
+
+Requires Ruby + Rubygems and the following:
+
+sudo apt-get install ruby libopenssl-ruby
+
+# nokogiri requirements
+sudo apt-get install libxslt-dev libxml2-dev
+
+# install bundler
+sudo gem install bundler
+
+# run bundler
+bundle install
+
+export APCI_REST_TEST_HOST=host.allplayers.com
+export APCI_REST_TEST_USER=user
+export APCI_REST_TEST_PASS=password
+
+then 'rake test'.
