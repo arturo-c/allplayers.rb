@@ -18,8 +18,3 @@ sudo gem install bundler
 # run bundler
 bundle install
 
-export APCI_REST_TEST_HOST=host.allplayers.com
-export APCI_REST_TEST_USER=user
-export APCI_REST_TEST_PASS=password
-
-then 'rake test'.
