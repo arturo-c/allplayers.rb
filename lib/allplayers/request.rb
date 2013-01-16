@@ -23,13 +23,9 @@ module AllPlayers
     # Perform an HTTP request
     def request(verb, path, query = {}, payload = {}, headers = {})
       begin
-        if path.to_s =~ /albums|announcements|broadcasts|events|groups|messages|photos|resources|users/i
-          uri = Addressable::URI.join(@base_uri, 'api/v1/rest/'+path.to_s)
-        else
-          uri = Addressable::URI.join(@base_uri, 'api/rest/'+path.to_s)
-        end
+        uri = Addressable::URI.join(@base_uri, 'api/v1/rest/'+path.to_s)
         uri.query_values = query unless query.empty?
-        headers.merge!({:cookies => @session_cookies}) unless @session_cookies.empty?
+        headers.merge!(@headers) unless @headers.empty?
         RestClient.log = @log
         RestClient.open_timeout = 600
         RestClient.timeout = 600
@@ -39,14 +35,16 @@ module AllPlayers
           response = RestClient.send(verb, uri.to_s, headers)
         end
         # Had to remove any html tags before the xml because xmlsimple was reading the hmtl errors on pdup and was crashing.
+        return response unless response.net_http_res.body
         xml_response =  '<?xml' + response.split("<?xml").last
         html_response = response.split("<?xml").first
         puts html_response if !html_response.empty?
-        # @TODO - Review this logic - Update the cookies.
-        @session_cookies.merge!(response.cookies) unless response.cookies.empty?
         # @TODO - There must be a way to change the base object (XML string to
         #   Hash) while keeping the methods...
-        XmlSimple.xml_in(xml_response, { 'ForceArray' => ['item'] })
+        array_response = XmlSimple.xml_in(xml_response, { 'ForceArray' => ['item'] })
+        return array_response if array_response.empty? || array_response.include?('item') || array_response['item'].nil?
+        return array_response['item'].first if array_response['item'].length == 1
+        array_response['item']
       rescue REXML::ParseException => xml_err
         # XML Parser error
         raise "Failed to parse server response."

@@ -19,10 +19,24 @@ module AllPlayers
       @base_uri = Addressable::URI.join(protocol + server, '')
       @key = api_key # TODO - Not implemented in API yet.
       @session_cookies = {}
+      @headers = {}
     end
+
     def log(target)
       @log = target
       RestClient.log = target
+    end
+
+    # Add header method, preferably use array of symbols, e.g. {:USER-AGENT => 'RubyClient'}.
+    def add_headers(header = {})
+      @headers.merge!(header) unless header.nil?
+    end
+
+    # Remove headers from a session.
+    def remove_headers(headers = {})
+      headers.each do |header, value|
+        @headers.delete(header)
+      end
     end
   end
 end

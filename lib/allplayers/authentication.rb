@@ -2,19 +2,13 @@ module AllPlayers
   module Authentication
     def login(name, pass)
       begin
-        post 'user/login' , {:username => name, :password => pass}
-      #rescue RestClient::Exception => e
-       # puts "Session authentication error."
-       # raise #Re-raise the error.
+        post 'users/login' , {:username => name, :password => pass}
       end
     end
 
     def logout()
       begin
-        #[POST] {endpoint}/user/logout
-        post 'user/logout'
-      ensure
-        @session_cookies = {} # Delete the cookies.
+        post 'users/logout'
       end
     end
   end
