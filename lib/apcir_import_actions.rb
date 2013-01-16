@@ -138,37 +138,6 @@ module ImportActions
   # Statistics about operations performed
   @@stats = {}
 
-  def interactive_node_owner
-    email = ask("Email for the owner of imported nodes:  ") { |q| q.echo = true }
-    begin
-      uid = email_to_uid(email)
-    rescue
-      say 'Error locating user: ' + email
-      raise
-    end
-  rescue
-    email = nil
-    retry
-  else
-    if uid.nil?
-      raise
-    end
-    @node_owner_email = email unless uid.nil?
-    uid
-  end
-
-  def match_user_email(email)
-    users = self.user_list({'mail' => email})
-    if users.respond_to?(:has_key?) && users.has_key?('item')
-      if users['item'].length == 1
-        return users['item'].first['uid'] if users['item'].first.has_key?('uid')
-      elsif users['item'].length > 1
-        raise DuplicateUserExists.new(email + ' matches multiple users')
-      end
-    end
-    return nil
-  end
-
   def verify_children(row, description = 'User', matched_uuid = nil)
     # Fields to match
     import = row.reject {|k,v| k != 'first_name' && k != 'last_name'}
@@ -455,7 +424,7 @@ module ImportActions
 
     if responses.has_key?('participant_') && !responses['participant_'].nil?
       # Update participant with responses.  We're done with parents.
-      row['participant_uid'] = responses['participant_']['uid'] if responses['participant_'].has_key?('uid')
+      row['participant_uuid'] = responses['participant_']['uuid'] if responses['participant_'].has_key?('uuid')
       row['participant_email_address'] = responses['participant_']['mail'] if responses['participant_'].has_key?('mail')
 
       # Find the max number of groups being imported
