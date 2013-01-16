@@ -523,16 +523,16 @@ module ImportActions
     else
       # Check if user already
       begin
-        uuid, lock = self.user_get_email(row['email_address'], :lock)
+        user = self.user_get_email(row['email_address'])
       rescue DuplicateUserExists => dup_e
         @logger.error(get_row_count.to_s) {description + ' ' + dup_e.message.to_s}
         return {}
       end
 
-      if !uuid.nil?
-        @logger.warn(get_row_count.to_s) {description + ' already exists: ' + row['email_address'] + ' at UUID: ' + uuid + '. Participant will still be added to groups.'}
-        self.verify_children(row, description, uuid)
-        return {'mail' => row['email_address'], 'uuid' => uuid }
+      if !user.nil?
+        @logger.warn(get_row_count.to_s) {description + ' already exists: ' + row['email_address'] + ' at UUID: ' + user['uuid'] + '. Participant will still be added to groups.'}
+        self.verify_children(row, description, user['uuid'])
+        return {'mail' => row['email_address'], 'uuid' => user['uuid']}
       else
         if !row['email_address'].valid_email_address?
           @logger.error(get_row_count.to_s) {description + ' has an invalid email address: ' + row['email_address'] + '. Skipping.'}
