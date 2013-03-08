@@ -1,25 +1,30 @@
-require 'addressable/uri'
-require 'xmlsimple'
-require 'logger'
-require 'active_support/base64'
-require 'restclient'
-require 'allplayers/authentication'
 require 'allplayers/request'
+require 'allplayers/authentication'
+require 'addressable/uri'
+require 'restclient'
 
 module AllPlayers
   class API
+
     include Request
     include Authentication
     attr_accessor :logger
 
-    def initialize(api_key = nil, server = 'sandbox.allplayers.com', protocol = 'https://', auth = 'session')
-      if (auth == 'session')
+    def initialize(server = 'https://www.allplayers.com', auth = 'basic', access_token = nil)
+      @base_uri = server
+      if (auth == 'basic')
         extend AllPlayers::Authentication
       end
-      @base_uri = Addressable::URI.join(protocol + server, '')
-      @key = api_key # TODO - Not implemented in API yet.
-      @session_cookies = {}
+      @access_token = access_token
       @headers = {}
+    end
+
+    # Exchange your oauth_token and oauth_token_secret for an AccessToken instance.
+    def prepare_access_token(oauth_token, oauth_token_secret, consumer_token, consumer_secret)
+      consumer = OAuth::Consumer.new(consumer_token, consumer_secret, {:site => @base_uri})
+      # now create the access token object from passed values
+      token_hash = {:oauth_token => oauth_token, :oauth_token_secret => oauth_token_secret}
+      @access_token = OAuth::AccessToken.from_hash(consumer, token_hash)
     end
 
     def log(target)
@@ -38,5 +43,6 @@ module AllPlayers
         @headers.delete(header)
       end
     end
+
   end
 end
