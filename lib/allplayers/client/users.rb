@@ -37,8 +37,8 @@ module AllPlayers
       get 'users/' + user_uuid + '/groups', params
     end
 
-    def user_join_group(group_uuid, user_uuid, role_name = nil, options = {}, webform_ids = {})
-      post 'groups/' + group_uuid + '/join/' + user_uuid, {:org_webform_id => webform_ids, :role_name => role_name.to_s, :role_options => options}
+    def user_join_group(group_uuid, user_uuid, role_name = nil, options = {}, webform_id = nil)
+      post 'groups/' + group_uuid + '/join/' + user_uuid, {:org_webform_uuid => webform_id, :role_name => role_name.to_s, :role_options => options}
     end
 
     def user_group_add_role(group_uuid, user_uuid, role_uuid, params = {})

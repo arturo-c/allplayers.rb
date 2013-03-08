@@ -34,12 +34,20 @@ module AllPlayers
       put 'groups/' + group_uuid, params
     end
 
-    def group_members_list(group_uuid, user_uuid = '', params = {})
-      get 'groups/' + group_uuid + '/members/' + user_uuid, params
+    def group_members_list(group_uuid, user_uuid = nil, params = {})
+      if user_uuid.nil?
+        get 'groups/' + group_uuid + '/members', params
+      else
+        get 'groups/' + group_uuid + '/members/' + user_uuid, params
+      end
     end
 
-    def group_roles_list(group_uuid, user_uuid = '', params = {})
-      get 'groups/' + group_uuid + '/roles/' + user_uuid, params
+    def group_roles_list(group_uuid, user_uuid = nil, params = {})
+      if user_uuid.nil?
+        get 'groups/' + group_uuid + '/roles', params
+      else
+        get 'groups/' + group_uuid + '/roles/' + user_uuid, params
+      end
     end
   end
 end

@@ -23,31 +23,37 @@ module AllPlayers
     # Perform an HTTP request
     def request(verb, path, query = {}, payload = {}, headers = {})
       begin
-        uri = Addressable::URI.join(@base_uri, 'api/v1/rest/'+path.to_s)
-        uri.query_values = query unless query.empty?
+        uri = Addressable::URI.join(@base_uri, 'api/v1/rest/'+path.to_s+'.json')
+        query_params = Rack::Utils.build_nested_query(query)
+        string_uri = uri.to_s
+        string_uri = string_uri + '?' + query_params
         headers.merge!(@headers) unless @headers.empty?
-        RestClient.log = @log
-        RestClient.open_timeout = 600
-        RestClient.timeout = 600
+
+        # Use access_token if this is oauth authentication.
+        unless @access_token.nil?
+          if [:patch, :post, :put].include? verb
+            response = @access_token.request(verb, uri.to_s, payload, headers)
+          else
+            response = @access_token.request(verb, string_uri, headers)
+          end
+          return JSON.parse(response.body) if response.code == '200'
+          return 'No Content' if response.code == '204'
+        end
+
+        # Use RestClient if using basic auth.
         if [:patch, :post, :put].include? verb
           response = RestClient.send(verb, uri.to_s, payload, headers)
         else
-          response = RestClient.send(verb, uri.to_s, headers)
+          response = RestClient.send(verb, string_uri, headers)
         end
-        # Had to remove any html tags before the xml because xmlsimple was reading the hmtl errors on pdup and was crashing.
-        return response unless response.net_http_res.body
-        xml_response =  '<?xml' + response.split("<?xml").last
-        html_response = response.split("<?xml").first
-        puts html_response if !html_response.empty?
-        # @TODO - There must be a way to change the base object (XML string to
-        #   Hash) while keeping the methods...
-        array_response = XmlSimple.xml_in(xml_response, { 'ForceArray' => ['item'] })
-        return array_response if array_response.empty? || array_response.include?('item') || array_response['item'].nil?
-        return array_response['item'].first if array_response['item'].length == 1
-        array_response['item']
-      rescue REXML::ParseException => xml_err
-        # XML Parser error
-        raise "Failed to parse server response."
+        return JSON.parse(response) if response.code == 200
+        return 'No Content' if response.code == 204
+      rescue RestClient::Exception
+        raise AllPlayers::Error::ClientError
+      rescue JSON::ParserError
+        raise AllPlayers::Error::DecodeError
+      rescue Exception
+        raise AllPlayers::Error::ClientError
       end
     end
   end
