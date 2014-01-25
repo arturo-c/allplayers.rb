@@ -11,5 +11,22 @@ module AllPlayers
     def assign_submission(form_uuid, submission_id, user_uuid, html = 0)
       post 'forms/' + form_uuid + '/assign_submission/' + submission_id.to_s, {:user_uuid => user_uuid, :html => html}
     end
+
+    def create_submission(form_uuid, data = {}, user_uuid = nil)
+      formatted_data = {}
+      data.each do |cid, value|
+        formatted_data.merge!(cid => {:value => {0 => value}})
+      end
+      submission = {:data => formatted_data}
+
+      unless user_uuid.nil?
+        submission.merge!(:user_uuid => user_uuid)
+      end
+      post 'submissions', {:webform => form_uuid, :submission => submission}
+    end
+
+    def get_webform(form_uuid)
+      get 'webforms/' + form_uuid
+    end
   end
 end
