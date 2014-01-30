@@ -1,10 +1,10 @@
 module AllPlayers
   module Forms
-    def get_submission(form_uuid, submission_id = nil, user_uuid = nil, key_values = {}, html = 0)
-      if submission_id.nil?
-        get 'forms/' + form_uuid + '/submissions', {:user_uuid => user_uuid, :key_values => key_values, :html => html}
+    def get_submission(form_uuid, submission_uuid = nil, user_uuid = nil, form_keys = {})
+      if submission_uuid.nil?
+        get 'forms/' + form_uuid + '/submission', {:user_uuid => user_uuid, :form_keys => form_keys}
       else
-        get 'forms/' + form_uuid + '/submissions/' + submission_id.to_s, {:html => html, :user_uuid => user_uuid}
+        get 'forms/' + form_uuid + '/submission/' + submission_uuid.to_s, {:user_uuid => user_uuid}
       end
     end
 
@@ -13,11 +13,7 @@ module AllPlayers
     end
 
     def create_submission(form_uuid, data = {}, user_uuid = nil)
-      formatted_data = {}
-      data.each do |cid, value|
-        formatted_data.merge!(cid => {:value => {0 => value}})
-      end
-      submission = {:data => formatted_data}
+      submission = {:data => data}
 
       unless user_uuid.nil?
         submission.merge!(:user_uuid => user_uuid)
