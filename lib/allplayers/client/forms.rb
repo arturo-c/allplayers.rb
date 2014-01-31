@@ -8,8 +8,8 @@ module AllPlayers
       end
     end
 
-    def assign_submission(form_uuid, submission_id, user_uuid, html = 0)
-      post 'forms/' + form_uuid + '/assign_submission/' + submission_id.to_s, {:user_uuid => user_uuid, :html => html}
+    def assign_submission(form_uuid, submission_uuid, user_uuid)
+      post 'forms/' + form_uuid + '/assign_submission/' + submission_uuid.to_s, {:user_uuid => user_uuid}
     end
 
     def create_submission(form_uuid, data = {}, user_uuid = nil)
