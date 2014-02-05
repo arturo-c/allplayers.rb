@@ -21,6 +21,10 @@ module AllPlayers
       post 'submissions', {:webform => form_uuid, :submission => submission}
     end
 
+    def delete_submission(form_uuid)
+      delete 'submissions/' + form_uuid
+    end
+
     def get_webform(form_uuid)
       get 'webforms/' + form_uuid
     end
