@@ -41,6 +41,10 @@ module AllPlayers
       post 'groups/' + group_uuid + '/join/' + user_uuid, {:org_webform_uuid => webform_id, :role_name => role_name.to_s, :role_options => options}
     end
 
+    def user_leave_group(group_uuid, user_uuid)
+      post 'groups/' + group_uuid + '/leave/' + user_uuid
+    end
+
     def user_group_add_role(group_uuid, user_uuid, role_uuid, params = {})
       post 'groups/' + group_uuid + '/addrole/' + user_uuid + '/' + role_uuid, params
     end
