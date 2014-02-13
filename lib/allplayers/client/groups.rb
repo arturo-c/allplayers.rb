@@ -49,5 +49,9 @@ module AllPlayers
         get 'groups/' + group_uuid + '/roles/' + user_uuid, params
       end
     end
+
+    def group_subgroups_tree(group_uuid)
+      get 'groups/' + group_uuid + '/subgroups/tree'
+    end
   end
 end
