@@ -18,6 +18,10 @@ module AllPlayers
       post 'groups/' + target_uuid + '/copy/' + origin_uuid, {:groups_above => groups_above_setting}
     end
 
+    def group_clone_webforms(target_uuid, origin_uuid, create_new = false, user_uuid = nil)
+      post 'groups/' + target_uuid + '/copywebforms/' + origin_uuid, {:new => create_new, :user_uuid => user_uuid}
+    end
+
     def group_get(group_uuid)
       get 'groups/' + group_uuid
     end
@@ -42,6 +46,10 @@ module AllPlayers
       end
     end
 
+    def group_webforms_list(group_uuid)
+      get 'groups/' + group_uuid + '/webforms'
+    end
+
     def group_roles_list(group_uuid, user_uuid = nil, params = {})
       if user_uuid.nil?
         get 'groups/' + group_uuid + '/roles', params
@@ -52,6 +60,10 @@ module AllPlayers
 
     def group_subgroups_tree(group_uuid)
       get 'groups/' + group_uuid + '/subgroups/tree'
+    end
+
+    def set_store_payee(group_uuid, payee = nil)
+      post 'group_stores/' + group_uuid + '/payee', {:payee_uuid => payee}
     end
   end
 end

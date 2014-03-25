@@ -23,11 +23,14 @@ module AllPlayers
     # Perform an HTTP request
     def request(verb, path, query = {}, payload = {}, headers = {})
       begin
-        uri = Addressable::URI.join(@base_uri, 'api/v1/rest/'+path.to_s+'.json')
+        uri = Addressable::URI.join(@base_uri, 'api/v1/rest/'+path.to_s+'.json?XDEBUG_SESSION_START=storm')
         query_params = Rack::Utils.build_nested_query(query)
         string_uri = uri.to_s
         string_uri = string_uri + '?' + query_params
         headers.merge!(@headers) unless @headers.empty?
+        if headers[:Content_Type] == 'application/json'
+          payload = payload.to_json
+        end
 
         # Use access_token if this is oauth authentication.
         unless @access_token.nil?
@@ -38,22 +41,18 @@ module AllPlayers
           end
           return JSON.parse(response.body) if response.code == '200'
           return 'No Content' if response.code == '204'
-        end
-
-        # Use RestClient if using basic auth.
-        if [:patch, :post, :put].include? verb
-          response = RestClient.send(verb, uri.to_s, payload, headers)
+          raise AllPlayers::Error.new(response), 'Oauth Error'
         else
-          response = RestClient.send(verb, string_uri, headers)
+          # Use RestClient if using basic auth.
+          if [:patch, :post, :put].include? verb
+            response = RestClient.send(verb, uri.to_s, payload, headers)
+          else
+            response = RestClient.send(verb, string_uri, headers)
+          end
+          return JSON.parse(response) if response.code == 200
         end
-        return JSON.parse(response) if response.code == 200
         return 'No Content' if response.code == 204
-      rescue RestClient::Exception
-        raise AllPlayers::Error::ClientError
-      rescue JSON::ParserError
-        raise AllPlayers::Error::DecodeError
-      rescue Exception
-        raise AllPlayers::Error::ClientError
+        raise AllPlayers::Error.new(response), 'RestClient Error'
       end
     end
   end

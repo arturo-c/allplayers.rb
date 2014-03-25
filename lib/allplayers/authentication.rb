@@ -2,13 +2,13 @@ module AllPlayers
   module Authentication
     def login(name, pass)
       begin
-        post 'users/login' , {:username => name, :password => pass}
+        post 'user/login' , {:username => name, :password => pass}
       end
     end
 
     def logout()
       begin
-        post 'users/logout'
+        post 'user/logout'
       end
     end
   end

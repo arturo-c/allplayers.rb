@@ -10,13 +10,13 @@ module AllPlayers
     include Authentication
     attr_accessor :logger
 
-    def initialize(server = 'https://www.allplayers.com', auth = 'basic', access_token = nil)
+    def initialize(server = 'https://www.allplayers.com', auth = 'basic', access_token = nil, content_type = 'application/json')
       @base_uri = server
       if (auth == 'basic')
         extend AllPlayers::Authentication
       end
       @access_token = access_token
-      @headers = {}
+      @headers = {:Content_Type => 'application/json'}
     end
 
     # Exchange your oauth_token and oauth_token_secret for an AccessToken instance.

@@ -48,5 +48,15 @@ module AllPlayers
     def user_group_add_role(group_uuid, user_uuid, role_uuid, params = {})
       post 'groups/' + group_uuid + '/addrole/' + user_uuid + '/' + role_uuid, params
     end
+
+    def user_create_group(uuid, title, description, location, categories, more_params = {})
+      required_params = {
+          :title => title,
+          :description => description,
+          :location => location,
+          :category => categories
+      }
+      post 'users/' + uuid + '/creategroup', required_params.merge(more_params)
+    end
   end
 end
