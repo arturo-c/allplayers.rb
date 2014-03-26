@@ -23,7 +23,7 @@ module AllPlayers
     # Perform an HTTP request
     def request(verb, path, query = {}, payload = {}, headers = {})
       begin
-        uri = Addressable::URI.join(@base_uri, 'api/v1/rest/'+path.to_s+'.json?XDEBUG_SESSION_START=storm')
+        uri = Addressable::URI.join(@base_uri, 'api/v1/rest/'+path.to_s+'.json')
         query_params = Rack::Utils.build_nested_query(query)
         string_uri = uri.to_s
         string_uri = string_uri + '?' + query_params
