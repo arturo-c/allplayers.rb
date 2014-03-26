@@ -44,10 +44,13 @@ module AllPlayers
           raise AllPlayers::Error.new(response), 'Oauth Error'
         else
           # Use RestClient if using basic auth.
+          client = RestClient
+          client.timeout = 60
+          client.open_timeout = 60
           if [:patch, :post, :put].include? verb
-            response = RestClient.send(verb, uri.to_s, payload, headers)
+            response = client.send(verb, uri.to_s, payload, headers)
           else
-            response = RestClient.send(verb, string_uri, headers)
+            response = client.send(verb, string_uri, headers)
           end
           return JSON.parse(response) if response.code == 200
         end
