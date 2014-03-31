@@ -20,5 +20,5 @@ Gem::Specification.new do |spec|
   spec.required_rubygems_version = Gem::Requirement.new('>= 1.3.6')
   spec.summary = spec.description
   spec.test_files = Dir.glob("spec/**/*")
-  spec.version = '0.1.5'
+  spec.version = '0.1.6'
 end

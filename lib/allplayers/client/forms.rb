@@ -28,5 +28,9 @@ module AllPlayers
     def get_webform(form_uuid)
       get 'webforms/' + form_uuid
     end
+
+    def get_submission_by_uuid(submission_uuid)
+      get 'submissions/' + submission_uuid
+    end
   end
 end
